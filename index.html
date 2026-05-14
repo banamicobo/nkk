@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nasz Kochany Kamper — platforma spółdzielni kamperowych</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<style>
+/* ── LANDING SPECIFIC ───────────────────────────────────── */
+body { overflow-x: hidden; }
+
+/* NAV */
+.lnav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px; height: 64px;
+  background: rgba(28,33,24,.85); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.lnav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.lnav-logo span { font-size: 22px; }
+.lnav-logo strong {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 700; color: var(--cream);
+}
+.lnav-actions { display: flex; gap: 10px; align-items: center; }
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 100px 24px 80px;
+  position: relative;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(232,131,42,.10) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 40% at 80% 20%, rgba(106,171,94,.06) 0%, transparent 60%);
+}
+.hero-tag {
+  display: inline-block;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--orange2); border: 1px solid rgba(232,131,42,.3);
+  padding: 4px 14px; border-radius: 99px;
+  margin-bottom: 24px;
+}
+.hero h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(38px, 6vw, 72px);
+  font-weight: 900; color: var(--cream);
+  line-height: 1.1; letter-spacing: -.02em;
+  max-width: 800px; margin-bottom: 20px;
+}
+.hero h1 em { color: var(--orange); font-style: normal; }
+.hero p {
+  font-size: clamp(14px, 2vw, 18px);
+  color: var(--text2); max-width: 540px;
+  line-height: 1.7; margin-bottom: 40px;
+}
+.hero-cta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.btn-xl {
+  padding: 14px 32px; font-size: 15px; font-weight: 600;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+}
+.hero-scroll {
+  position: absolute; bottom: 32px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px; color: var(--text3);
+  letter-spacing: .1em; text-transform: uppercase;
+  font-family: 'DM Mono', monospace;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.hero-scroll::after {
+  content: '↓'; font-size: 16px; color: var(--orange);
+  animation: bounce 2s infinite;
+}
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
+
+/* STATS BAR */
+.stats-bar {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 24px 48px;
+  display: flex; justify-content: center; gap: 64px; flex-wrap: wrap;
+}
+.stat-item { text-align: center; }
+.stat-item .n {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px; font-weight: 900; color: var(--cream);
+  letter-spacing: -.02em;
+}
+.stat-item .l {
+  font-size: 12px; color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+
+/* REASONS */
+.reasons {
+  padding: 80px 48px;
+  max-width: 1100px; margin: 0 auto;
+}
+.section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--orange2); margin-bottom: 12px;
+}
+.section-h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(26px, 4vw, 42px); font-weight: 900;
+  color: var(--cream); letter-spacing: -.02em;
+  margin-bottom: 48px; max-width: 560px;
+}
+.reasons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.reason-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  display: flex; gap: 16px; align-items: flex-start;
+  transition: border-color .2s, box-shadow .2s;
+}
+.reason-card:hover {
+  border-color: rgba(232,131,42,.35);
+  box-shadow: 0 4px 24px rgba(232,131,42,.07);
+}
+.reason-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px; font-weight: 900;
+  color: var(--orange); opacity: .5;
+  line-height: 1; flex-shrink: 0; width: 36px;
+}
+.reason-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+.reason-title {
+  font-size: 14px; font-weight: 600; color: var(--cream);
+  margin-bottom: 4px;
+}
+.reason-desc { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+/* HOW IT WORKS */
+.how {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 80px 48px;
+}
+.how-inner { max-width: 1100px; margin: 0 auto; }
+.how-steps {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 24px; margin-top: 48px;
+}
+.how-step { text-align: center; padding: 0 12px; position: relative; }
+.how-step:not(:last-child)::after {
+  content: '→';
+  position: absolute; right: -12px; top: 20px;
+  color: var(--text3); font-size: 18px;
+}
+.how-step-icon {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--orange-dim); border: 1px solid rgba(232,131,42,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin: 0 auto 14px;
+}
+.how-step-title { font-size: 14px; font-weight: 600; color: var(--cream); margin-bottom: 6px; }
+.how-step-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+/* CTA SECTION */
+.cta-section {
+  padding: 80px 48px;
+  text-align: center;
+  max-width: 600px; margin: 0 auto;
+}
+.cta-section h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(24px, 4vw, 38px); font-weight: 900;
+  color: var(--cream); margin-bottom: 12px;
+}
+.cta-section p { font-size: 14px; color: var(--text2); margin-bottom: 32px; line-height: 1.7; }
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+footer p { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+/* MODALS */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:200; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: 0 16px 64px rgba(0,0,0,.4);
+  padding: 32px; width: 400px; max-width: 95vw;
+  position: relative;
+}
+.modal::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--orange), var(--orange2));
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.modal h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px; font-weight: 700; color: var(--cream);
+  margin-bottom: 4px;
+}
+.modal .modal-sub { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+.modal .btn-primary { width: 100%; justify-content: center; padding: 11px; font-size: 14px; }
+.modal-footer { margin-top: 16px; text-align: center; font-size: 13px; color: var(--text3); }
+.modal-footer a { color: var(--orange2); cursor: pointer; text-decoration: none; }
+.modal-footer a:hover { text-decoration: underline; }
+.modal-close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; color: var(--text3);
+  font-size: 18px; cursor: pointer; line-height: 1;
+}
+.modal-close:hover { color: var(--cream); }
+
+@media (max-width: 768px) {
+  .lnav { padding: 0 20px; }
+  .hero { padding: 100px 20px 60px; }
+  .stats-bar { padding: 24px 20px; gap: 32px; }
+  .reasons { padding: 60px 20px; }
+  .how { padding: 60px 20px; }
+  .how-steps { grid-template-columns: 1fr 1fr; }
+  .how-step::after { display: none; }
+  .cta-section { padding: 60px 20px; }
+  footer { padding: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="lnav">
+  <a class="lnav-logo" href="#">
+    <span>🚐</span>
+    <strong>Nasz Kochany Kamper</strong>
+  </a>
+  <div class="lnav-actions">
+    <button class="btn btn-ghost btn-sm" onclick="openLogin()">Zaloguj się</button>
+    <button class="btn btn-primary btn-sm" onclick="openRegister()">Załóż konto</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-tag">Platforma spółdzielni kamperowych</div>
+  <h1>Kamper to frajda.<br>Kamper to też <em>koszty.</em></h1>
+  <p>Podziel się kampem, kosztami i przygodami z zaufanymi ludźmi. NKK to platforma do zarządzania wspólnym pojazdem — rezerwacje, finanse, dokumenty, historia serwisowa w jednym miejscu.</p>
+  <div class="hero-cta">
+    <button class="btn btn-primary btn-xl" onclick="openRegister()">🚐 Załóż spółdzielnię</button>
+    <button class="btn btn-ghost btn-xl" onclick="openLogin()">Mam już konto →</button>
+  </div>
+  <div class="hero-scroll">Dowiedz się więcej</div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="n">2–4</div>
+    <div class="l">Idealny rozmiar</div>
+  </div>
+  <div class="stat-item">
+    <div class="n">60–70%</div>
+    <div class="l">Oszczędność vs własny kamper</div>
+  </div>
+  <div class="stat-item">
+    <div class="n">14 dni</div>
+    <div class="l">Max rezerwacja self-service</div>
+  </div>
+  <div class="stat-item">
+    <div class="n">100%</div>
+    <div class="l">Transparentność finansów</div>
+  </div>
+</div>
+
+<!-- 10 REASONS -->
+<section class="reasons">
+  <div class="section-label">Dlaczego spółdzielnia?</div>
+  <h2 class="section-h2">12 powodów, żeby nie kupować kampera samemu</h2>
+  <div class="reasons-grid">
+
+    <div class="reason-card">
+      <div class="reason-num">1</div>
+      <div>
+        <div class="reason-icon">💸</div>
+        <div class="reason-title">Koszt zakupu podzielony</div>
+        <div class="reason-desc">Kamper za 150 000 PLN dla 3 osób to 50 000 PLN każda. To różnica między marzeniem a realnością.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">2</div>
+      <div>
+        <div class="reason-icon">📅</div>
+        <div class="reason-title">Używasz ile potrzebujesz</div>
+        <div class="reason-desc">Przeciętny właściciel używa kampera 3–4 tygodnie rocznie. Reszta czasu — kamper stoi i kosztuje. W spółdzielni płacisz za realne użytkowanie.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">3</div>
+      <div>
+        <div class="reason-icon">🔧</div>
+        <div class="reason-title">Serwis, opony, ubezpieczenie — razem</div>
+        <div class="reason-desc">Największe koszty stałe rozkładają się proporcjonalnie. Awaria nie boli tak samo, gdy jest wspólna.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">4</div>
+      <div>
+        <div class="reason-icon">📊</div>
+        <div class="reason-title">Pełna transparentność finansów</div>
+        <div class="reason-desc">Każda faktura, każda składka, każdy wydatek widoczny dla wszystkich członków. Zero domysłów, zero nieporozumień.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">5</div>
+      <div>
+        <div class="reason-icon">🗓</div>
+        <div class="reason-title">System rezerwacji bez chaosu</div>
+        <div class="reason-desc">Kalendarz online, reguły pierwszeństwa, limit 14 dni self-service. Konflikty rozwiązane zanim powstaną.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">6</div>
+      <div>
+        <div class="reason-icon">📄</div>
+        <div class="reason-title">Dokumenty zawsze pod ręką</div>
+        <div class="reason-desc">OC, dowód rejestracyjny, umowa spółdzielni — wszystko w jednym miejscu, dostępne dla każdego członka z telefonu.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">7</div>
+      <div>
+        <div class="reason-icon">🛠</div>
+        <div class="reason-title">Historia serwisowa nie ginie</div>
+        <div class="reason-desc">Każda naprawka, wymiana, przegląd — zalogowana w systemie. Kamper ma pełny cyfrowy dziennik pokładowy.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">8</div>
+      <div>
+        <div class="reason-icon">🤝</div>
+        <div class="reason-title">Umowa = jasne zasady od dnia 1</div>
+        <div class="reason-desc">Kto decyduje o naprawach? Co przy sprzedaży? NKK prowadzi przez konfigurację zasad, zanim pojawią się pierwsze problemy.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">9</div>
+      <div>
+        <div class="reason-icon">📈</div>
+        <div class="reason-title">Wartość pojazdu rośnie wspólnie</div>
+        <div class="reason-desc">Dobrze utrzymany kamper to inwestycja. Spółdzielnia motywuje do dbałości — bo każdy jest współwłaścicielem.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">10</div>
+      <div>
+        <div class="reason-icon">🌍</div>
+        <div class="reason-title">Mniej aut na świecie — szczerze</div>
+        <div class="reason-desc">Jeden kamper dla 3 rodzin zamiast 3 kamperów stojących 48 tygodni w garażu. Ekonomia i ekologia w jednym.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">11</div>
+      <div>
+        <div class="reason-icon">😤</div>
+        <div class="reason-title">Wypożyczalnie to koszmar</div>
+        <div class="reason-desc">Wysokie kaucje, koszty podstawienia, minimalny okres rezerwacji, limity kilometrów i stres przy oddawaniu pojazdu — każda rysa pod lupą. Własny kamper to koniec tej gry.</div>
+      </div>
+    </div>
+
+    <div class="reason-card">
+      <div class="reason-num">12</div>
+      <div>
+        <div class="reason-icon">🔑</div>
+        <div class="reason-title">Wypożyczając — spłacasz cudzy leasing</div>
+        <div class="reason-desc">Każda złotówka wydana w wypożyczalni buduje majątek właściciela firmy. W spółdzielni jeździsz swoim — każdy wyjazd to użytkowanie własnego aktywa.</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="how-inner">
+    <div class="section-label">Jak to działa?</div>
+    <h2 class="section-h2">Od rejestracji do pierwszego wyjazdu</h2>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-step-icon">✍️</div>
+        <div class="how-step-title">Załóż konto</div>
+        <div class="how-step-desc">Rejestracja zajmuje 30 sekund. Tylko email i hasło.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon">🚐</div>
+        <div class="how-step-title">Utwórz spółdzielnię</div>
+        <div class="how-step-desc">Wpisz dane pojazdu, parametry finansowe i zasady użytkowania.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon">👥</div>
+        <div class="how-step-title">Zaproś współwłaścicieli</div>
+        <div class="how-step-desc">Wyślij link zaproszeniowy. Każdy wypełnia ankietę stylu użytkowania.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon">🗺️</div>
+        <div class="how-step-title">Jedźcie</div>
+        <div class="how-step-desc">Rezerwuj terminy, loguj koszty, trzymaj finanse w porządku.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="section-label">Gotowy?</div>
+  <h2>Twoja pierwsza spółdzielnia kamperowa zaczyna się tutaj</h2>
+  <p>Darmowe konto. Nieograniczona liczba spółdzielni i członków. Bez abonamentu — na zawsze.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <button class="btn btn-primary btn-xl" onclick="openRegister()">🚐 Załóż konto za darmo</button>
+    <button class="btn btn-ghost btn-xl" onclick="openLogin()">Zaloguj się</button>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>🚐 Nasz Kochany Kamper · Platforma spółdzielni kamperowych</p>
+  <p>Made with ☕ &amp; Claude</p>
+</footer>
+
+<!-- MODAL: LOGIN -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModals()">✕</button>
+    <h3>Witaj z powrotem</h3>
+    <div class="modal-sub">Zaloguj się do swojej spółdzielni</div>
+    <div id="login-alert"></div>
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="twoj@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Hasło</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Zaloguj się</button>
+    <div class="modal-footer">
+      Nie masz konta? <a onclick="openRegister()">Załóż za darmo →</a>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: REGISTER -->
+<div class="modal-overlay" id="modal-register">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModals()">✕</button>
+    <h3>Załóż konto</h3>
+    <div class="modal-sub">Bezpłatnie. Bez abonamentu.</div>
+    <div id="register-alert"></div>
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="reg-email" placeholder="twoj@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Hasło</label>
+      <input type="password" id="reg-pass" placeholder="Min. 6 znaków" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>Powtórz hasło</label>
+      <input type="password" id="reg-pass2" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <button class="btn btn-primary" id="reg-btn" onclick="doRegister()">Utwórz konto →</button>
+    <div class="modal-footer">
+      Masz już konto? <a onclick="openLogin()">Zaloguj się</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// If already logged in — show "Przejdź do panelu" in nav instead of login/register
+(async () => {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (session) {
+    const actions = document.querySelector('.lnav-actions');
+    actions.innerHTML = `
+      <span style="font-size:12px;color:var(--text3);font-family:'DM Mono',monospace">${session.user.email}</span>
+      <a href="dashboard.html" class="btn btn-primary btn-sm">Przejdź do panelu →</a>
+    `;
+  }
+})();
+
+function openLogin()    { closeModals(); document.getElementById('modal-login').classList.add('open'); document.getElementById('login-email').focus(); }
+function openRegister() { closeModals(); document.getElementById('modal-register').classList.add('open'); document.getElementById('reg-email').focus(); }
+function closeModals()  { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
+
+// Close on backdrop click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModals(); });
+});
+
+// Enter key support
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('reg-pass2').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+
+async function doLogin() {
+  const btn = document.getElementById('login-btn');
+  const alertEl = document.getElementById('login-alert');
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+
+  if (!email || !pass) { alertEl.innerHTML = err('Wpisz email i hasło.'); return; }
+
+  btn.textContent = 'Logowanie…'; btn.disabled = true;
+  const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+
+  if (error) {
+    alertEl.innerHTML = err('Nieprawidłowy email lub hasło.');
+    btn.textContent = 'Zaloguj się'; btn.disabled = false;
+  } else {
+    const { data: member } = await _supabase
+      .from('members').select('id').eq('user_id', (await _supabase.auth.getUser()).data.user.id).single();
+    window.location.href = member ? 'dashboard.html' : 'choose.html';
+  }
+}
+
+async function doRegister() {
+  const btn = document.getElementById('reg-btn');
+  const alertEl = document.getElementById('register-alert');
+  const email = document.getElementById('reg-email').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  const pass2 = document.getElementById('reg-pass2').value;
+
+  if (!email || !pass) { alertEl.innerHTML = err('Wpisz email i hasło.'); return; }
+  if (pass.length < 6)  { alertEl.innerHTML = err('Hasło musi mieć min. 6 znaków.'); return; }
+  if (pass !== pass2)   { alertEl.innerHTML = err('Hasła się nie zgadzają.'); return; }
+
+  btn.textContent = 'Tworzenie konta…'; btn.disabled = true;
+  const { error } = await _supabase.auth.signUp({ email, password: pass });
+
+  if (error) {
+    alertEl.innerHTML = err(error.message);
+    btn.textContent = 'Utwórz konto →'; btn.disabled = false;
+  } else {
+    window.location.href = 'choose.html';
+  }
+}
+
+function err(msg) { return `<div class="alert alert-danger" style="margin-bottom:12px">${msg}</div>`; }
+</script>
+</body>
+</html>

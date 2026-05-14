@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rezerwacje · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<style>
+.cal-nav { display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+.cal-nav button { background:none; border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 10px; cursor:pointer; font-size:13px; color:var(--text2); }
+.cal-nav button:hover { background:var(--bg); }
+.cal-month { font-size:15px; font-weight:600; min-width:160px; text-align:center; }
+.res-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border2); }
+.res-row:last-child { border-bottom:none; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:200; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border-radius:var(--radius); box-shadow:0 8px 40px rgba(0,0,0,.15); padding:28px 28px 24px; width:420px; max-width:95vw; }
+.modal h3 { font-size:15px; font-weight:700; margin-bottom:18px; }
+.modal-footer { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚐</div>
+      <div class="logo-name">Nasz Kochany Kamper</div>
+      <div class="logo-sub">Spółdzielnia</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">⊞</span> Dashboard</a>
+      <a href="reservations.html" class="nav-item active"><span class="nav-icon">📅</span> Rezerwacje</a>
+      <a href="balance.html" class="nav-item"><span class="nav-icon">⚖</span> Bilans</a>
+      <a href="documents.html" class="nav-item"><span class="nav-icon">📄</span> Dokumenty</a>
+      <a href="history.html" class="nav-item"><span class="nav-icon">🔧</span> Historia pojazdu</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Członkowie</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user"></div>
+      <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">↩</span> Wyloguj</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <span class="topbar-title">Rezerwacje</span>
+      <button class="btn btn-primary btn-sm" onclick="openModal()">+ Nowa rezerwacja</button>
+    </div>
+    <div class="page-content">
+
+      <div id="alerts-area"></div>
+
+      <div class="grid-2" style="margin-bottom:20px">
+        <!-- CALENDAR -->
+        <div class="card" style="grid-column:1/3">
+          <div class="cal-nav">
+            <button onclick="changeMonth(-1)">‹</button>
+            <div class="cal-month" id="cal-month-label"></div>
+            <button onclick="changeMonth(1)">›</button>
+            <div style="margin-left:auto;display:flex;gap:12px;font-size:12px;align-items:center">
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green-dim);border:1px solid var(--green);margin-right:4px"></span>Twoje</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--blue-dim);border:1px solid var(--blue);margin-right:4px"></span>Inne</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent-dim);border:1px solid var(--accent);margin-right:4px"></span>Dzisiaj</span>
+            </div>
+          </div>
+          <div class="cal-grid" id="cal-header"></div>
+          <div class="cal-grid" id="cal-body" style="margin-top:4px"></div>
+        </div>
+      </div>
+
+      <!-- LIST -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" style="margin-bottom:0">Wszystkie rezerwacje</div>
+          <div style="display:flex;gap:8px">
+            <select id="filter-status" class="btn btn-ghost btn-sm" onchange="renderList()" style="padding:5px 8px">
+              <option value="">Wszystkie</option>
+              <option value="confirmed">Zatwierdzone</option>
+              <option value="pending">Oczekujące</option>
+            </select>
+          </div>
+        </div>
+        <div id="res-list"><div style="color:var(--text3);font-size:13px">Ładowanie…</div></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Nowa rezerwacja</h3>
+    <div id="modal-alert"></div>
+    <div class="form-group">
+      <label>Data od</label>
+      <input type="date" id="res-start">
+    </div>
+    <div class="form-group">
+      <label>Data do</label>
+      <input type="date" id="res-end">
+    </div>
+    <div class="form-group">
+      <label>Uwagi (opcjonalne)</label>
+      <textarea id="res-notes" placeholder="Np. trasa, cel podróży…"></textarea>
+    </div>
+    <div id="long-warning" class="alert alert-warning" style="display:none">
+      ⚠ Rezerwacje powyżej 14 dni wymagają uzgodnienia na comiesięcznym callu spółdzielni. Zostanie wysłana prośba o zatwierdzenie.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Anuluj</button>
+      <button class="btn btn-primary" id="modal-submit" onclick="submitReservation()">Zarezerwuj</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allReservations = [];
+let currentMember = null;
+let currentUserId = null;
+let calYear, calMonth;
+
+const DAYS = ['Pn','Wt','Śr','Cz','Pt','Sb','Nd'];
+
+async function init() {
+  const session = await requireAuth();
+  if (!session) return;
+  currentUserId = session.user.id;
+  currentMember = await getCurrentMember(session.user.id);
+  renderSidebarUser(currentMember);
+
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+
+  await loadReservations();
+  renderCalendar();
+  renderList();
+}
+
+async function loadReservations() {
+  const { data } = await _supabase.from('reservations')
+    .select('*, members(name, id)')
+    .order('start_date');
+  allReservations = data || [];
+}
+
+function renderCalendar() {
+  document.getElementById('cal-month-label').textContent =
+    new Date(calYear, calMonth, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+
+  // Header
+  document.getElementById('cal-header').innerHTML = DAYS.map(d =>
+    `<div class="cal-header-cell">${d}</div>`).join('');
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const offset = (firstDay + 6) % 7; // Monday-first
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = new Date().toISOString().slice(0,10);
+
+  let cells = '';
+  for (let i = 0; i < offset; i++) cells += `<div class="cal-cell empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const res = allReservations.find(r => dateStr >= r.start_date && dateStr <= r.end_date);
+    const isToday = dateStr === today;
+    const isPast = dateStr < today;
+    const isMe = res && res.members?.id === currentMember?.id;
+    let cls = 'cal-cell';
+    if (isPast) cls += ' past';
+    if (isToday) cls += ' today';
+    if (res && isMe) cls += ' reserved-me';
+    else if (res) cls += ' reserved';
+    const tooltip = res ? `title="${res.members?.name}: ${res.start_date} – ${res.end_date}"` : '';
+    cells += `<div class="${cls}" ${tooltip}>${d}</div>`;
+  }
+  document.getElementById('cal-body').innerHTML = cells;
+}
+
+function renderList() {
+  const filter = document.getElementById('filter-status').value;
+  let items = allReservations.filter(r => !filter || r.status === filter);
+  const today = new Date().toISOString().slice(0,10);
+
+  const el = document.getElementById('res-list');
+  if (!items.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">Brak rezerwacji.</div>'; return; }
+
+  el.innerHTML = items.map(r => {
+    const isPast = r.end_date < today;
+    const isMe = r.members?.id === currentMember?.id;
+    const days = daysBetween(r.start_date, r.end_date);
+    return `
+    <div class="res-row" style="${isPast ? 'opacity:.55' : ''}">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:4px;height:40px;border-radius:2px;background:${isMe ? 'var(--green)' : 'var(--blue)'}"></div>
+        <div>
+          <div style="font-size:13px;font-weight:600">${r.members?.name || '—'}</div>
+          <div style="font-size:12px;color:var(--text3)">${formatDate(r.start_date)} – ${formatDate(r.end_date)} · <strong>${days} dni</strong>${days > 14 ? ' · <span style="color:var(--accent)">wymaga zatwierdzenia</span>' : ''}</div>
+          ${r.notes ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">${r.notes}</div>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="badge ${r.status === 'confirmed' ? 'badge-green' : r.status === 'pending' ? 'badge-amber' : 'badge-red'}">${r.status === 'confirmed' ? 'Zatwierdzona' : r.status === 'pending' ? 'Oczekuje' : 'Odrzucona'}</span>
+        ${isMe && !isPast ? `<button class="btn btn-ghost btn-sm" onclick="deleteReservation('${r.id}')">Usuń</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function changeMonth(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('res-start').value = '';
+  document.getElementById('res-end').value = '';
+  document.getElementById('res-notes').value = '';
+  document.getElementById('long-warning').style.display = 'none';
+  document.getElementById('modal-alert').innerHTML = '';
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+document.getElementById('res-end').addEventListener('change', () => {
+  const s = new Date(document.getElementById('res-start').value);
+  const e = new Date(document.getElementById('res-end').value);
+  const days = Math.round((e - s) / 86400000) + 1;
+  document.getElementById('long-warning').style.display = days > 14 ? 'flex' : 'none';
+});
+
+async function submitReservation() {
+  const start = document.getElementById('res-start').value;
+  const end = document.getElementById('res-end').value;
+  const notes = document.getElementById('res-notes').value;
+  const alertEl = document.getElementById('modal-alert');
+
+  if (!start || !end) { alertEl.innerHTML = '<div class="alert alert-danger">Wybierz daty.</div>'; return; }
+  if (end < start) { alertEl.innerHTML = '<div class="alert alert-danger">Data końcowa musi być po startowej.</div>'; return; }
+
+  // Check conflicts
+  const conflict = allReservations.find(r =>
+    r.status !== 'cancelled' && start <= r.end_date && end >= r.start_date
+  );
+  if (conflict) {
+    alertEl.innerHTML = `<div class="alert alert-danger">Konflikt z rezerwacją ${conflict.members?.name}: ${formatDate(conflict.start_date)} – ${formatDate(conflict.end_date)}.</div>`;
+    return;
+  }
+
+  const days = daysBetween(start, end);
+  const status = days > 14 ? 'pending' : 'confirmed';
+
+  const { error } = await _supabase.from('reservations').insert({
+    member_id: currentMember.id,
+    start_date: start,
+    end_date: end,
+    notes,
+    status,
+  });
+
+  if (error) { alertEl.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+
+  closeModal();
+  await loadReservations();
+  renderCalendar();
+  renderList();
+}
+
+async function deleteReservation(id) {
+  if (!confirm('Usunąć tę rezerwację?')) return;
+  await _supabase.from('reservations').delete().eq('id', id);
+  await loadReservations();
+  renderCalendar();
+  renderList();
+}
+
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000) + 1;
+}
+
+init();
+</script>
+</body>
+</html>

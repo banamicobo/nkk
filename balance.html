@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilans · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<style>
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);box-shadow:0 8px 40px rgba(0,0,0,.15);padding:28px;width:460px;max-width:95vw}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:18px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.tab-bar{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚐</div>
+      <div class="logo-name">Nasz Kochany Kamper</div>
+      <div class="logo-sub">Spółdzielnia</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">⊞</span> Dashboard</a>
+      <a href="reservations.html" class="nav-item"><span class="nav-icon">📅</span> Rezerwacje</a>
+      <a href="balance.html" class="nav-item active"><span class="nav-icon">⚖</span> Bilans</a>
+      <a href="documents.html" class="nav-item"><span class="nav-icon">📄</span> Dokumenty</a>
+      <a href="history.html" class="nav-item"><span class="nav-icon">🔧</span> Historia pojazdu</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Członkowie</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user"></div>
+      <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">↩</span> Wyloguj</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <span class="topbar-title">Bilans finansowy</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="openModal('contribution')">+ Składka</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('expense')">+ Wydatek</button>
+      </div>
+    </div>
+    <div class="page-content">
+
+      <!-- STATS ROW -->
+      <div class="grid-stat" style="margin-bottom:20px">
+        <div class="card">
+          <div class="stat-label">Budżet wspólny</div>
+          <div class="stat-value" id="s-budget">—</div>
+          <div style="margin-top:8px"><div class="progress-bar"><div class="progress-fill" id="budget-bar" style="width:0%"></div></div></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">cel: <span id="s-target">—</span></div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Wydatki w tym roku</div>
+          <div class="stat-value" id="s-expenses-year">—</div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Składki w tym roku</div>
+          <div class="stat-value" id="s-contrib-year">—</div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Prognoza 2-letnia</div>
+          <div class="stat-value" id="s-forecast">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">szacowane koszty utrzym.</div>
+        </div>
+      </div>
+
+      <!-- CHART + MEMBERS BALANCE -->
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-title">Wydatki wg kategorii</div>
+          <canvas id="cat-chart" height="180"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Rozliczenie członków</div>
+          <div id="member-balance-list"></div>
+        </div>
+      </div>
+
+      <!-- TABS: EXPENSES / CONTRIBUTIONS -->
+      <div class="card">
+        <div class="tab-bar">
+          <div class="tab active" onclick="switchTab('expenses',this)">Wydatki</div>
+          <div class="tab" onclick="switchTab('contributions',this)">Składki</div>
+        </div>
+        <div id="tab-expenses">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Data</th><th>Kategoria</th><th>Opis</th><th>Kwota</th><th>Dodał</th><th>Faktura</th>
+              </tr></thead>
+              <tbody id="expenses-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="tab-contributions" style="display:none">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Data</th><th>Członek</th><th>Kwota</th><th>Status</th><th>Uwagi</th>
+              </tr></thead>
+              <tbody id="contrib-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ADD EXPENSE / CONTRIBUTION MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Dodaj wydatek</h3>
+    <div id="modal-alert"></div>
+
+    <!-- Expense fields -->
+    <div id="expense-fields">
+      <div class="form-group">
+        <label>Kategoria</label>
+        <select id="exp-cat">
+          <option value="service">🔧 Serwis</option>
+          <option value="tires">🔄 Opony</option>
+          <option value="repair">🛠 Naprawa</option>
+          <option value="insurance">🛡 Ubezpieczenie</option>
+          <option value="other">📋 Inne</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Opis</label>
+        <input type="text" id="exp-desc" placeholder="Np. wymiana oleju">
+      </div>
+      <div class="form-group">
+        <label>Kwota (PLN)</label>
+        <input type="number" id="exp-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="exp-date">
+      </div>
+      <div class="form-group">
+        <label>Faktura (PDF)</label>
+        <input type="file" id="exp-file" accept=".pdf,image/*">
+      </div>
+    </div>
+
+    <!-- Contribution fields -->
+    <div id="contrib-fields" style="display:none">
+      <div class="form-group">
+        <label>Kwota (PLN)</label>
+        <input type="number" id="con-amount" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Data wpłaty</label>
+        <input type="date" id="con-date">
+      </div>
+      <div class="form-group">
+        <label>Uwagi</label>
+        <input type="text" id="con-notes" placeholder="Opcjonalnie">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Anuluj</button>
+      <button class="btn btn-primary" id="modal-submit" onclick="submitForm()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let modalMode = 'expense';
+let currentMember = null;
+
+async function init() {
+  const session = await requireAuth();
+  if (!session) return;
+  currentMember = await getCurrentMember(session.user.id);
+  renderSidebarUser(currentMember);
+
+  document.getElementById('exp-date').value = today();
+  document.getElementById('con-date').value = today();
+
+  await Promise.all([loadBudget(), loadExpenses(), loadContributions(), loadMemberBalances()]);
+}
+
+async function loadBudget() {
+  const { data } = await _supabase.from('budget').select('*').single();
+  if (!data) return;
+  document.getElementById('s-budget').textContent = formatPLN(data.current_balance);
+  document.getElementById('s-target').textContent = formatPLN(data.target_balance);
+  document.getElementById('s-forecast').textContent = formatPLN(data.forecast_2yr);
+  const pct = Math.min(100, Math.round((data.current_balance / data.target_balance) * 100));
+  const bar = document.getElementById('budget-bar');
+  bar.style.width = pct + '%';
+  bar.className = 'progress-fill ' + (pct >= 80 ? 'green' : pct >= 40 ? '' : 'red');
+}
+
+async function loadExpenses() {
+  const yr = new Date().getFullYear();
+  const { data } = await _supabase.from('expenses').select('*, members(name)').order('date', { ascending: false });
+  if (!data) return;
+
+  const yearTotal = data.filter(e => e.date?.startsWith(yr)).reduce((s, e) => s + e.amount, 0);
+  document.getElementById('s-expenses-year').textContent = formatPLN(yearTotal);
+
+  // Category chart
+  const cats = { service: 0, tires: 0, repair: 0, insurance: 0, other: 0 };
+  data.forEach(e => { cats[e.category] = (cats[e.category] || 0) + e.amount; });
+  const catLabels = { service: 'Serwis', tires: 'Opony', repair: 'Naprawy', insurance: 'Ubezp.', other: 'Inne' };
+  new Chart(document.getElementById('cat-chart'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(cats).map(k => catLabels[k]),
+      datasets: [{ data: Object.values(cats), backgroundColor: '#c17f3a', borderRadius: 4 }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => formatPLN(v) } } }
+    }
+  });
+
+  // Table
+  const tbody = document.getElementById('expenses-tbody');
+  tbody.innerHTML = data.map(e => `
+    <tr>
+      <td>${formatDate(e.date)}</td>
+      <td><span class="badge badge-amber">${{service:'Serwis',tires:'Opony',repair:'Naprawa',insurance:'Ubezp.',other:'Inne'}[e.category]||e.category}</span></td>
+      <td>${e.description}</td>
+      <td style="font-weight:600">${formatPLN(e.amount)}</td>
+      <td>${e.members?.name || '—'}</td>
+      <td>${e.invoice_url ? `<a href="${e.invoice_url}" target="_blank" class="btn btn-ghost btn-sm">📄 PDF</a>` : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+async function loadContributions() {
+  const yr = new Date().getFullYear();
+  const { data } = await _supabase.from('contributions').select('*, members(name)').order('date', { ascending: false });
+  if (!data) return;
+
+  const yearTotal = data.filter(c => c.date?.startsWith(yr)).reduce((s, c) => s + c.amount, 0);
+  document.getElementById('s-contrib-year').textContent = formatPLN(yearTotal);
+
+  const tbody = document.getElementById('contrib-tbody');
+  tbody.innerHTML = data.map(c => `
+    <tr>
+      <td>${formatDate(c.date)}</td>
+      <td>${c.members?.name || '—'}</td>
+      <td style="font-weight:600;color:var(--green)">${formatPLN(c.amount)}</td>
+      <td><span class="badge ${c.status === 'paid' ? 'badge-green' : 'badge-amber'}">${c.status === 'paid' ? 'Zapłacone' : 'Oczekuje'}</span></td>
+      <td style="color:var(--text3)">${c.notes || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+async function loadMemberBalances() {
+  const { data: members } = await _supabase.from('members').select('*');
+  const { data: contribs } = await _supabase.from('contributions').select('*').eq('status', 'paid');
+  const { data: expenses } = await _supabase.from('expenses').select('*');
+  if (!members) return;
+
+  const totalExpenses = (expenses || []).reduce((s, e) => s + e.amount, 0);
+  const el = document.getElementById('member-balance-list');
+  el.innerHTML = members.map(m => {
+    const paid = (contribs || []).filter(c => c.member_id === m.id).reduce((s, c) => s + c.amount, 0);
+    const share = totalExpenses * (m.share_pct / 100);
+    const diff = paid - share;
+    return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar">${m.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">${m.name}</div>
+          <div style="font-size:11px;color:var(--text3)">Udział: ${m.share_pct}% · Wpłacił: ${formatPLN(paid)}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:700;color:${diff >= 0 ? 'var(--green)' : 'var(--red)'}">${diff >= 0 ? '+' : ''}${formatPLN(diff)}</div>
+        <div style="font-size:11px;color:var(--text3)">${diff >= 0 ? 'nadpłata' : 'do wyrównania'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-expenses').style.display = tab === 'expenses' ? '' : 'none';
+  document.getElementById('tab-contributions').style.display = tab === 'contributions' ? '' : 'none';
+}
+
+function openModal(mode) {
+  modalMode = mode;
+  document.getElementById('modal-title').textContent = mode === 'expense' ? 'Dodaj wydatek' : 'Dodaj składkę';
+  document.getElementById('expense-fields').style.display = mode === 'expense' ? '' : 'none';
+  document.getElementById('contrib-fields').style.display = mode === 'contribution' ? '' : 'none';
+  document.getElementById('modal-alert').innerHTML = '';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+async function submitForm() {
+  const alertEl = document.getElementById('modal-alert');
+  alertEl.innerHTML = '';
+
+  if (modalMode === 'expense') {
+    const desc = document.getElementById('exp-desc').value.trim();
+    const amount = parseFloat(document.getElementById('exp-amount').value);
+    const date = document.getElementById('exp-date').value;
+    const cat = document.getElementById('exp-cat').value;
+    const file = document.getElementById('exp-file').files[0];
+
+    if (!desc || !amount || !date) { alertEl.innerHTML = '<div class="alert alert-danger">Wypełnij wszystkie pola.</div>'; return; }
+
+    let invoice_url = null;
+    if (file) {
+      const path = `invoices/${Date.now()}_${file.name}`;
+      const { data: up, error: upErr } = await _supabase.storage.from('documents').upload(path, file);
+      if (!upErr) {
+        const { data: { publicUrl } } = _supabase.storage.from('documents').getPublicUrl(path);
+        invoice_url = publicUrl;
+      }
+    }
+
+    const { error } = await _supabase.from('expenses').insert({
+      member_id: currentMember.id, category: cat, description: desc, amount, date, invoice_url
+    });
+    if (error) { alertEl.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+
+    // Also add to vehicle history if service/repair
+    if (['service','repair'].includes(cat)) {
+      await _supabase.from('vehicle_history').insert({
+        member_id: currentMember.id, type: cat, title: desc, date, description: `${formatPLN(amount)}`
+      });
+    }
+
+  } else {
+    const amount = parseFloat(document.getElementById('con-amount').value);
+    const date = document.getElementById('con-date').value;
+    const notes = document.getElementById('con-notes').value;
+
+    if (!amount || !date) { alertEl.innerHTML = '<div class="alert alert-danger">Wypełnij kwotę i datę.</div>'; return; }
+    const { error } = await _supabase.from('contributions').insert({
+      member_id: currentMember.id, amount, date, notes, status: 'paid'
+    });
+    if (error) { alertEl.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+
+    // Update budget
+    await _supabase.rpc('add_to_budget', { amount_add: amount });
+  }
+
+  closeModal();
+  await Promise.all([loadBudget(), loadExpenses(), loadContributions(), loadMemberBalances()]);
+}
+
+function today() { return new Date().toISOString().slice(0, 10); }
+function formatPLN(n) {
+  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n || 0);
+}
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+init();
+</script>
+</body>
+</html>

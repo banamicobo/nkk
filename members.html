@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Członkowie · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<style>
+.member-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px}
+.style-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600}
+.style-pedant{background:#e8f4ff;color:#2563eb}
+.style-user{background:#f0fdf4;color:#16a34a}
+.style-niechluj{background:#fff7ed;color:#c17f3a}
+.style-pro{background:#faf5ff;color:#7c3aed}
+.style-re{background:#fef2f2;color:#dc2626}
+.questionnaire{background:var(--bg);border-radius:var(--radius);padding:20px}
+.q-step{display:none}.q-step.active{display:block}
+.q-options{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.q-option{padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;transition:all .15s}
+.q-option:hover,.q-option.selected{border-color:var(--accent);background:var(--accent-dim);color:var(--text)}
+.q-progress{height:4px;background:var(--bg2);border-radius:2px;margin-bottom:16px}
+.q-progress-fill{height:100%;border-radius:2px;background:var(--accent);transition:width .3s}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚐</div>
+      <div class="logo-name">Nasz Kochany Kamper</div>
+      <div class="logo-sub">Spółdzielnia</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">⊞</span> Dashboard</a>
+      <a href="reservations.html" class="nav-item"><span class="nav-icon">📅</span> Rezerwacje</a>
+      <a href="balance.html" class="nav-item"><span class="nav-icon">⚖</span> Bilans</a>
+      <a href="documents.html" class="nav-item"><span class="nav-icon">📄</span> Dokumenty</a>
+      <a href="history.html" class="nav-item"><span class="nav-icon">🔧</span> Historia pojazdu</a>
+      <a href="members.html" class="nav-item active"><span class="nav-icon">👥</span> Członkowie</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user"></div>
+      <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">↩</span> Wyloguj</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <span class="topbar-title">Członkowie spółdzielni</span>
+    </div>
+    <div class="page-content">
+
+      <!-- MEMBERS GRID -->
+      <div id="members-grid" class="grid-3" style="margin-bottom:28px"></div>
+
+      <!-- QUESTIONNAIRE -->
+      <div class="card" id="questionnaire-section">
+        <div class="card-header">
+          <div class="card-title" style="margin-bottom:0">Twój wynik ankiety stylu</div>
+          <button class="btn btn-ghost btn-sm" id="retake-btn" onclick="startQuestionnaire()">Wypełnij ponownie</button>
+        </div>
+        <div id="my-style-result"></div>
+        <div id="questionnaire-wrap" style="display:none;margin-top:16px">
+          <div class="questionnaire">
+            <div class="q-progress"><div class="q-progress-fill" id="q-progress" style="width:0%"></div></div>
+            <div id="q-question" style="font-size:14px;font-weight:600;margin-bottom:4px"></div>
+            <div id="q-sub" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+            <div class="q-options" id="q-options"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:12px">
+            <button class="btn btn-primary btn-sm" id="q-next" onclick="nextQuestion()" disabled>Dalej →</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    q: 'Po powrocie z wyjazdu kamper jest…',
+    sub: 'Oceniaj siebie szczerze.',
+    options: [
+      { text: 'Wyczyszczony, zatankowany, gotowy na następny wyjazd — oddaję go w lepszym stanie niż wziąłem', val: 'pedant' },
+      { text: 'Przewiewiony i sprzątnięty w środku, zatankowany, ogólnie OK', val: 'user' },
+      { text: 'Oddany taki jaki jest — sprzątanie to sprawa wspólna, nie?', val: 'niechluj' },
+    ]
+  },
+  {
+    q: 'Widzisz małą usterkę (np. lusterko luźne, lampka pali). Co robisz?',
+    sub: 'Bądź szczery.',
+    options: [
+      { text: 'Naprawiam albo przynajmniej od razu raportuję z propozycją rozwiązania', val: 'proactive' },
+      { text: 'Wpisuję do historii pojazdu i czekam aż ktoś się tym zajmie', val: 'reactive' },
+      { text: 'Zakładam że inni widzą to samo i jakoś się rozwiąże', val: 'reactive' },
+    ]
+  },
+  {
+    q: 'Kiedy zbliża się Twoja rezerwacja, jak planujesz wyjazd?',
+    sub: '',
+    options: [
+      { text: 'Sprawdzam stan pojazdu tydzień wcześniej, przeglądam historię, raport piszę z wyprzedzeniem', val: 'pedant' },
+      { text: 'Sprawdzam dzień przed — paliwo, bagażnik, zapinki — standardowo', val: 'user' },
+      { text: 'Przyjeżdżam i wsiadam. Kamper to kamper.', val: 'niechluj' },
+    ]
+  },
+  {
+    q: 'Składki i koszty — Twoje podejście:',
+    sub: '',
+    options: [
+      { text: 'Płacę zanim dostanę przypomnienie, wolę mieć nadpłatę niż zaległość', val: 'proactive' },
+      { text: 'Płacę kiedy dostaję przypomnienie lub fakturę', val: 'reactive' },
+      { text: 'Czasem mi umknie, ale zawsze w końcu płacę', val: 'reactive' },
+    ]
+  },
+  {
+    q: 'W kwestii zasad spółdzielni:',
+    sub: 'Szczerość ważniejsza od poprawności.',
+    options: [
+      { text: 'Lubię jasne zasady — wiem co jest moje, co wspólne, jak działa rozliczenie', val: 'pedant' },
+      { text: 'OK z zasadami o ile są rozsądne i nie generują biurokracji', val: 'user' },
+      { text: 'Wolę elastyczność — dobra wola wystarczy między znajomymi', val: 'niechluj' },
+    ]
+  },
+];
+
+const STYLE_INFO = {
+  pedant: { label: 'Pedant', icon: '🔍', cls: 'style-pedant', desc: 'Zawsze zostawia kamper lepszym niż zastał. Idealny kotwór spółdzielni — ale może być frustrujący dla mniej skrupulatnych współwłaścicieli.' },
+  user: { label: 'Użytkownik', icon: '✅', cls: 'style-user', desc: 'Solidny, odpowiedzialny, trzyma standardy. Złoty środek — z tym współwłaścicielem będzie OK.' },
+  niechluj: { label: 'Niechluj', icon: '😬', cls: 'style-niechluj', desc: 'Styl "jakoś to będzie". Może generować tarcia ze współwłaścicielami z wyższymi standardami.' },
+  proactive: { label: 'Proaktywny', icon: '⚡', cls: 'style-pro', desc: 'Działa z wyprzedzeniem, nie czeka na problemy.' },
+  reactive: { label: 'Reaktywny', icon: '🔔', cls: 'style-re', desc: 'Reaguje gdy pojawi się potrzeba. Bezpieczny, ale może opóźniać rozwiązania.' },
+};
+
+let answers = [];
+let currentQ = 0;
+let currentMember = null;
+
+async function init() {
+  const session = await requireAuth();
+  if (!session) return;
+  currentMember = await getCurrentMember(session.user.id);
+  renderSidebarUser(currentMember);
+  await loadMembers();
+  renderMyStyle();
+}
+
+async function loadMembers() {
+  const { data } = await _supabase.from('members').select('*, contributions(amount,status), reservations(start_date,end_date,status)');
+  if (!data) return;
+  const el = document.getElementById('members-grid');
+  el.innerHTML = data.map(m => {
+    const paid = (m.contributions||[]).filter(c=>c.status==='paid').reduce((s,c)=>s+c.amount,0);
+    const days = (m.reservations||[]).filter(r=>r.status==='confirmed').reduce((s,r)=>s+daysBetween(r.start_date,r.end_date),0);
+    const initials = m.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const careStyle = STYLE_INFO[m.care_style] || null;
+    const responseStyle = STYLE_INFO[m.response_style] || null;
+    return `
+    <div class="member-card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div class="avatar" style="width:40px;height:40px;font-size:14px">${initials}</div>
+        <div>
+          <div style="font-size:14px;font-weight:700">${m.name}</div>
+          <div style="font-size:12px;color:var(--text3)">${m.email||''}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--text3)">Udział</span>
+          <strong>${m.share_pct}%</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--text3)">Wpłacono łącznie</span>
+          <strong>${formatPLN(paid)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--text3)">Dni użytkowania</span>
+          <strong>${days} dni</strong>
+        </div>
+      </div>
+      ${careStyle || responseStyle ? `
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${careStyle ? `<span class="style-badge ${careStyle.cls}">${careStyle.icon} ${careStyle.label}</span>` : ''}
+        ${responseStyle ? `<span class="style-badge ${responseStyle.cls}">${responseStyle.icon} ${responseStyle.label}</span>` : ''}
+      </div>` : '<div style="font-size:12px;color:var(--text3)">Ankieta nieuzupełniona</div>'}
+    </div>`;
+  }).join('');
+}
+
+function renderMyStyle() {
+  const el = document.getElementById('my-style-result');
+  if (!currentMember?.care_style) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:13px">Nie wypełniłeś jeszcze ankiety stylu użytkowania.</div>`;
+    document.getElementById('retake-btn').textContent = 'Wypełnij ankietę';
+    return;
+  }
+  const cs = STYLE_INFO[currentMember.care_style];
+  const rs = STYLE_INFO[currentMember.response_style];
+  el.innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      ${cs ? `<span class="style-badge ${cs.cls}" style="font-size:13px;padding:6px 14px">${cs.icon} ${cs.label}</span>` : ''}
+      ${rs ? `<span class="style-badge ${rs.cls}" style="font-size:13px;padding:6px 14px">${rs.icon} ${rs.label}</span>` : ''}
+    </div>
+    <div style="font-size:13px;color:var(--text2)">${cs?.desc || ''}</div>
+  `;
+}
+
+function startQuestionnaire() {
+  answers = [];
+  currentQ = 0;
+  document.getElementById('questionnaire-wrap').style.display = '';
+  showQuestion();
+}
+
+function showQuestion() {
+  const q = QUESTIONS[currentQ];
+  const pct = Math.round((currentQ / QUESTIONS.length) * 100);
+  document.getElementById('q-progress').style.width = pct + '%';
+  document.getElementById('q-question').textContent = q.q;
+  document.getElementById('q-sub').textContent = q.sub;
+  document.getElementById('q-next').disabled = true;
+  document.getElementById('q-options').innerHTML = q.options.map((o, i) => `
+    <div class="q-option" onclick="selectOption(${i}, '${o.val}')">${o.text}</div>
+  `).join('');
+}
+
+function selectOption(idx, val) {
+  document.querySelectorAll('.q-option').forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll('.q-option')[idx].classList.add('selected');
+  answers[currentQ] = val;
+  document.getElementById('q-next').disabled = false;
+}
+
+async function nextQuestion() {
+  if (currentQ < QUESTIONS.length - 1) {
+    currentQ++;
+    showQuestion();
+  } else {
+    // Calculate result
+    const careVotes = answers.filter(a => ['pedant','user','niechluj'].includes(a));
+    const careCount = {};
+    careVotes.forEach(a => careCount[a] = (careCount[a]||0) + 1);
+    const careStyle = Object.entries(careCount).sort((a,b) => b[1]-a[1])[0]?.[0] || 'user';
+
+    const responseVotes = answers.filter(a => ['proactive','reactive'].includes(a));
+    const proCount = responseVotes.filter(a => a === 'proactive').length;
+    const responseStyle = proCount > responseVotes.length / 2 ? 'proactive' : 'reactive';
+
+    document.getElementById('q-progress').style.width = '100%';
+    document.getElementById('questionnaire-wrap').style.display = 'none';
+
+    await _supabase.from('members').update({ care_style: careStyle, response_style: responseStyle }).eq('id', currentMember.id);
+    currentMember.care_style = careStyle;
+    currentMember.response_style = responseStyle;
+    renderMyStyle();
+    renderSidebarUser(currentMember);
+    await loadMembers();
+  }
+}
+
+function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000) + 1; }
+function formatPLN(n) { return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n || 0); }
+
+init();
+</script>
+</body>
+</html>

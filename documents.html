@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dokumenty · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<style>
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.doc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:10px}
+.doc-card:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(193,127,58,.1)}
+.doc-icon{font-size:32px}
+.doc-name{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
+.doc-meta{font-size:11px;color:var(--text3)}
+.pdf-viewer{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;flex-direction:column}
+.pdf-viewer.open{display:flex}
+.pdf-toolbar{background:#1a1612;padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.pdf-toolbar span{color:#fff;font-size:13px;font-weight:600}
+.pdf-toolbar button{background:rgba(255,255,255,.1);border:none;color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px}
+.pdf-toolbar button:hover{background:rgba(255,255,255,.2)}
+.pdf-frame{flex:1;border:none}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);padding:28px;width:420px;max-width:95vw}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:18px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚐</div>
+      <div class="logo-name">Nasz Kochany Kamper</div>
+      <div class="logo-sub">Spółdzielnia</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">⊞</span> Dashboard</a>
+      <a href="reservations.html" class="nav-item"><span class="nav-icon">📅</span> Rezerwacje</a>
+      <a href="balance.html" class="nav-item"><span class="nav-icon">⚖</span> Bilans</a>
+      <a href="documents.html" class="nav-item active"><span class="nav-icon">📄</span> Dokumenty</a>
+      <a href="history.html" class="nav-item"><span class="nav-icon">🔧</span> Historia pojazdu</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Członkowie</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user"></div>
+      <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">↩</span> Wyloguj</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <span class="topbar-title">Dokumenty</span>
+      <button class="btn btn-primary btn-sm" onclick="openUploadModal()">+ Dodaj dokument</button>
+    </div>
+    <div class="page-content">
+
+      <div style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:12px">Dokumenty spółdzielni</div>
+        <div class="doc-grid" id="doc-cooperative"></div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:12px">Dokumenty pojazdu</div>
+        <div class="doc-grid" id="doc-vehicle"></div>
+      </div>
+
+      <div>
+        <div class="card-title" style="margin-bottom:12px">Faktury i rachunki</div>
+        <div class="doc-grid" id="doc-invoice"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- PDF VIEWER -->
+<div class="pdf-viewer" id="pdf-viewer">
+  <div class="pdf-toolbar">
+    <span id="pdf-title">Dokument</span>
+    <div style="display:flex;gap:8px">
+      <a id="pdf-download" href="#" target="_blank"><button>⬇ Pobierz</button></a>
+      <button onclick="closePdf()">✕ Zamknij</button>
+    </div>
+  </div>
+  <iframe class="pdf-frame" id="pdf-frame"></iframe>
+</div>
+
+<!-- UPLOAD MODAL -->
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal">
+    <h3>Dodaj dokument</h3>
+    <div id="upload-alert"></div>
+    <div class="form-group">
+      <label>Nazwa dokumentu</label>
+      <input type="text" id="doc-name" placeholder="Np. Umowa spółdzielni 2024">
+    </div>
+    <div class="form-group">
+      <label>Kategoria</label>
+      <select id="doc-type">
+        <option value="cooperative">Spółdzielnia</option>
+        <option value="vehicle">Pojazd</option>
+        <option value="invoice">Faktura / rachunek</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Plik (PDF lub obraz)</label>
+      <input type="file" id="doc-file" accept=".pdf,image/*">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeUploadModal()">Anuluj</button>
+      <button class="btn btn-primary" onclick="uploadDocument()">Wgraj</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TYPE_ICONS = { cooperative: '📋', vehicle: '🚐', invoice: '🧾' };
+const TYPE_LABELS = { cooperative: 'Spółdzielnia', vehicle: 'Pojazd', invoice: 'Faktura' };
+
+async function init() {
+  const session = await requireAuth();
+  if (!session) return;
+  const member = await getCurrentMember(session.user.id);
+  renderSidebarUser(member);
+  await loadDocuments();
+}
+
+async function loadDocuments() {
+  const { data } = await _supabase.from('documents').select('*, members(name)').order('created_at', { ascending: false });
+  if (!data) return;
+
+  const groups = { cooperative: [], vehicle: [], invoice: [] };
+  data.forEach(d => { if (groups[d.type]) groups[d.type].push(d); });
+
+  for (const [type, docs] of Object.entries(groups)) {
+    const el = document.getElementById(`doc-${type}`);
+    if (!docs.length) {
+      el.innerHTML = `<div style="color:var(--text3);font-size:13px;grid-column:1/-1">Brak dokumentów.</div>`;
+      continue;
+    }
+    el.innerHTML = docs.map(d => `
+      <div class="doc-card" onclick="openPdf('${d.file_url}','${escHtml(d.title)}')">
+        <div class="doc-icon">${TYPE_ICONS[d.type] || '📄'}</div>
+        <div class="doc-name">${escHtml(d.title)}</div>
+        <div class="doc-meta">
+          <span class="badge badge-gray">${TYPE_LABELS[d.type]}</span><br>
+          <span style="margin-top:4px;display:block">${formatDate(d.created_at)} · ${d.members?.name || ''}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function openPdf(url, title) {
+  document.getElementById('pdf-title').textContent = title;
+  document.getElementById('pdf-frame').src = url;
+  document.getElementById('pdf-download').href = url;
+  document.getElementById('pdf-viewer').classList.add('open');
+}
+function closePdf() {
+  document.getElementById('pdf-viewer').classList.remove('open');
+  document.getElementById('pdf-frame').src = '';
+}
+
+function openUploadModal() {
+  document.getElementById('upload-modal').classList.add('open');
+  document.getElementById('upload-alert').innerHTML = '';
+}
+function closeUploadModal() { document.getElementById('upload-modal').classList.remove('open'); }
+
+async function uploadDocument() {
+  const name = document.getElementById('doc-name').value.trim();
+  const type = document.getElementById('doc-type').value;
+  const file = document.getElementById('doc-file').files[0];
+  const alertEl = document.getElementById('upload-alert');
+
+  if (!name || !file) { alertEl.innerHTML = '<div class="alert alert-danger">Wypełnij nazwę i wybierz plik.</div>'; return; }
+
+  const path = `${type}/${Date.now()}_${file.name}`;
+  const { error: upErr } = await _supabase.storage.from('documents').upload(path, file);
+  if (upErr) { alertEl.innerHTML = `<div class="alert alert-danger">${upErr.message}</div>`; return; }
+
+  const { data: { publicUrl } } = _supabase.storage.from('documents').getPublicUrl(path);
+
+  const { data: { session } } = await _supabase.auth.getSession();
+  const member = await getCurrentMember(session.user.id);
+
+  const { error } = await _supabase.from('documents').insert({
+    title: name, type, file_url: publicUrl, member_id: member.id
+  });
+  if (error) { alertEl.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+
+  closeUploadModal();
+  await loadDocuments();
+}
+
+function formatDate(d) { return new Date(d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+init();
+</script>
+</body>
+</html>

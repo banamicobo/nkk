@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Co chcesz zrobić? · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<style>
+.choose-wrap {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 24px 40px;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 70% 50% at 30% 90%, rgba(232,131,42,.07) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 70% 10%, rgba(106,171,94,.05) 0%, transparent 60%);
+}
+.choose-header { text-align: center; margin-bottom: 48px; }
+.choose-header .logo-icon { font-size: 32px; display: block; margin-bottom: 12px; }
+.choose-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(24px, 4vw, 36px); font-weight: 900;
+  color: var(--cream); margin-bottom: 8px;
+}
+.choose-header p { font-size: 14px; color: var(--text2); max-width: 440px; line-height: 1.7; }
+
+.choose-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 740px; width: 100%;
+}
+.choose-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s, transform .15s;
+  text-decoration: none;
+  display: flex; flex-direction: column; gap: 14px;
+  position: relative; overflow: hidden;
+}
+.choose-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  opacity: 0; transition: opacity .2s;
+}
+.choose-card.orange::before { background: linear-gradient(90deg, var(--orange), var(--orange2)); }
+.choose-card.green::before  { background: linear-gradient(90deg, var(--green), #8bc87e); }
+
+.choose-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.3);
+}
+.choose-card.orange:hover { border-color: rgba(232,131,42,.5); }
+.choose-card.orange:hover::before { opacity: 1; }
+.choose-card.green:hover  { border-color: rgba(106,171,94,.5); }
+.choose-card.green:hover::before  { opacity: 1; }
+
+.choose-icon { font-size: 36px; }
+.choose-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 19px; font-weight: 700; color: var(--cream);
+}
+.choose-desc { font-size: 13px; color: var(--text2); line-height: 1.7; }
+.choose-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.choose-tag {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  letter-spacing: .04em; padding: 3px 8px;
+  border-radius: 3px; background: var(--bg3);
+  color: var(--text3);
+}
+.choose-arrow {
+  margin-top: auto; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+  transition: gap .2s;
+}
+.choose-card.orange .choose-arrow { color: var(--orange2); }
+.choose-card.green  .choose-arrow { color: var(--green); }
+.choose-card:hover .choose-arrow { gap: 10px; }
+
+.choose-footer {
+  margin-top: 32px;
+  font-size: 12px; color: var(--text3);
+  text-align: center; font-family: 'DM Mono', monospace;
+}
+.choose-footer a { color: var(--text2); cursor: pointer; }
+.choose-footer a:hover { color: var(--cream); }
+
+@media (max-width: 600px) {
+  .choose-grid { grid-template-columns: 1fr; }
+}
+<style>
+.top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  background: rgba(28,33,24,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.top-nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none; color: var(--cream);
+  font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700;
+}
+.top-nav-logo span { font-size: 20px; }
+.top-nav-actions { display: flex; align-items: center; gap: 6px; }
+.top-nav-btn {
+  padding: 6px 14px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border); background: none;
+  color: var(--text2); transition: all .15s; text-decoration: none;
+  display: flex; align-items: center; gap: 5px;
+}
+.top-nav-btn:hover { color: var(--cream); border-color: rgba(255,255,255,.15); background: var(--bg3); }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <a class="top-nav-logo" href="index.html">
+    <span>🚐</span> NKK
+  </a>
+  <div class="top-nav-actions">
+    <a class="top-nav-btn" href="find-match.html">👤 Mój profil matchingowy</a>
+    <button class="top-nav-btn" onclick="logout()">Wyloguj</button>
+  </div>
+</nav>
+<div class="choose-wrap">
+  <div class="choose-header">
+    <span class="logo-icon">🚐</span>
+    <h1>Jak chcesz zacząć?</h1>
+    <p>Możesz od razu założyć spółdzielnię ze znajomymi albo wypełnić ankietę i poczekać na dopasowanie.</p>
+  </div>
+
+  <div class="choose-grid">
+
+    <!-- ŚCIEŻKA A -->
+    <a class="choose-card orange" href="onboarding.html">
+      <div class="choose-icon">🤝</div>
+      <div class="choose-title">Mam już ekipę</div>
+      <div class="choose-desc">Wiesz z kim chcesz jechać. Zakładasz spółdzielnię, wpisujecie dane pojazdu i zaczynacie zarządzać.</div>
+      <div class="choose-tags">
+        <span class="choose-tag">Gotowa ekipa</span>
+        <span class="choose-tag">Znany pojazd</span>
+        <span class="choose-tag">Start od zaraz</span>
+      </div>
+      <div class="choose-arrow">Załóż spółdzielnię →</div>
+    </a>
+
+    <!-- ŚCIEŻKA B -->
+    <a class="choose-card green" href="find-match.html">
+      <div class="choose-icon">🔍</div>
+      <div class="choose-title">Szukam wspólników</div>
+      <div class="choose-desc">Masz apetyt na kampera, ale nie masz jeszcze ekipy. Wypełniasz ankietę, trafiasz do puli matchów i czekasz na dopasowanie.</div>
+      <div class="choose-tags">
+        <span class="choose-tag">Ankieta stylu</span>
+        <span class="choose-tag">Potrzeby kampera</span>
+        <span class="choose-tag">System matchowania</span>
+      </div>
+      <div class="choose-arrow">Znajdź wspólników →</div>
+    </a>
+
+  </div>
+
+  <div class="choose-footer">
+    Możesz zrobić obie rzeczy niezależnie. &nbsp;·&nbsp;
+    <a onclick="logout()">Wyloguj się</a>
+  </div>
+</div>
+<script>
+(async () => {
+  const session = await requireAuth();
+  if (!session) return;
+  // If already has cooperative → go to dashboard
+  const { data: member } = await _supabase
+    .from('members').select('id').eq('user_id', session.user.id).single();
+  if (member) window.location.href = 'dashboard.html';
+})();
+</script>
+</body>
+</html>

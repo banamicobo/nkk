@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Utwórz spółdzielnię · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<style>
+.onb-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 16px 40px;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(232,131,42,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 80% 20%, rgba(106,171,94,.05) 0%, transparent 70%);
+}
+.onb-box {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: relative;
+}
+.onb-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), var(--orange2), var(--cream2));
+}
+.onb-header {
+  padding: 28px 32px 0;
+  text-align: center;
+}
+.onb-header .logo-icon { font-size: 36px; display: block; margin-bottom: 10px; }
+.onb-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; font-weight: 900;
+  color: var(--cream); margin-bottom: 4px;
+}
+.onb-header p { font-size: 13px; color: var(--text3); }
+
+/* Steps */
+.steps-bar {
+  display: flex;
+  gap: 0;
+  padding: 24px 32px 0;
+}
+.step-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.step-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  right: -50%;
+  height: 1px;
+  background: var(--border);
+  z-index: 0;
+}
+.step-item.done::after { background: var(--orange); }
+.step-dot {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  color: var(--text3);
+  z-index: 1;
+  font-family: 'DM Mono', monospace;
+  transition: all .2s;
+}
+.step-item.active .step-dot { border-color: var(--orange); background: var(--orange); color: #1c2118; }
+.step-item.done .step-dot { border-color: var(--orange); background: var(--orange-dim); color: var(--orange2); }
+.step-label { font-size: 10px; color: var(--text3); letter-spacing: .04em; font-family: 'DM Mono', monospace; }
+.step-item.active .step-label { color: var(--orange2); }
+
+.onb-body { padding: 24px 32px 32px; }
+
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 700;
+  color: var(--cream);
+  margin-bottom: 4px;
+}
+.section-sub { font-size: 12px; color: var(--text3); margin-bottom: 20px; }
+
+.grid-2f { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.onb-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.onb-nav .step-counter {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+}
+<style>
+.top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  background: rgba(28,33,24,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.top-nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none; color: var(--cream);
+  font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700;
+}
+.top-nav-logo span { font-size: 20px; }
+.top-nav-actions { display: flex; align-items: center; gap: 6px; }
+.top-nav-btn {
+  padding: 6px 14px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border); background: none;
+  color: var(--text2); transition: all .15s; text-decoration: none;
+  display: flex; align-items: center; gap: 5px;
+}
+.top-nav-btn:hover { color: var(--cream); border-color: rgba(255,255,255,.15); background: var(--bg3); }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <a class="top-nav-logo" href="index.html">
+    <span>🚐</span> NKK
+  </a>
+  <div class="top-nav-actions">
+    <a class="top-nav-btn" href="find-match.html">👤 Mój profil matchingowy</a>
+    <button class="top-nav-btn" onclick="logout()">Wyloguj</button>
+  </div>
+</nav>
+<div class="onb-wrap">
+  <div class="onb-box">
+    <div class="onb-header">
+      <span class="logo-icon">🚐</span>
+      <h1>Nasz Kochany Kamper</h1>
+      <p>Załóż spółdzielnię kamperową</p>
+    </div>
+
+    <!-- STEPS BAR -->
+    <div class="steps-bar" id="steps-bar">
+      <div class="step-item active" id="si-1">
+        <div class="step-dot">1</div>
+        <div class="step-label">Spółdzielnia</div>
+      </div>
+      <div class="step-item" id="si-2">
+        <div class="step-dot">2</div>
+        <div class="step-label">Pojazd</div>
+      </div>
+      <div class="step-item" id="si-3">
+        <div class="step-dot">3</div>
+        <div class="step-label">Finanse</div>
+      </div>
+      <div class="step-item" id="si-4">
+        <div class="step-dot">4</div>
+        <div class="step-label">Twój profil</div>
+      </div>
+    </div>
+
+    <div class="onb-body">
+      <div id="global-alert"></div>
+
+      <!-- KROK 1: Spółdzielnia -->
+      <div class="step-panel active" id="panel-1">
+        <div class="section-title">Dane spółdzielni</div>
+        <div class="section-sub">Jak będzie się nazywać Wasza spółdzielnia?</div>
+
+        <div class="form-group">
+          <label>Nazwa spółdzielni *</label>
+          <input type="text" id="coop-name" placeholder="Np. Wolni Koczownicy, Ekipa Kamperowa…">
+        </div>
+        <div class="form-group">
+          <label>Krótki adres URL (slug) *</label>
+          <input type="text" id="coop-slug" placeholder="np. wolni-koczownicy" style="font-family:'DM Mono',monospace">
+          <span style="font-size:11px;color:var(--text3)">Tylko małe litery, cyfry i myślniki. Używany do linków zaproszeniowych.</span>
+        </div>
+
+        <div class="onb-nav">
+          <span class="step-counter">Krok 1 z 4</span>
+          <button class="btn btn-primary" onclick="goTo(2)">Dalej →</button>
+        </div>
+      </div>
+
+      <!-- KROK 2: Pojazd -->
+      <div class="step-panel" id="panel-2">
+        <div class="section-title">Dane pojazdu</div>
+        <div class="section-sub">Kamper, który będziecie współdzielić.</div>
+
+        <div class="grid-2f">
+          <div class="form-group">
+            <label>Marka *</label>
+            <input type="text" id="v-make" placeholder="Np. Fiat, Volkswagen…">
+          </div>
+          <div class="form-group">
+            <label>Model *</label>
+            <input type="text" id="v-model" placeholder="Np. Ducato, Crafter…">
+          </div>
+        </div>
+        <div class="grid-2f">
+          <div class="form-group">
+            <label>Rok produkcji *</label>
+            <input type="number" id="v-year" placeholder="Np. 2019" min="1990" max="2030">
+          </div>
+          <div class="form-group">
+            <label>Numer rejestracyjny *</label>
+            <input type="text" id="v-plate" placeholder="Np. KR 12345" style="text-transform:uppercase">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Numer VIN (opcjonalnie)</label>
+          <input type="text" id="v-vin" placeholder="17 znaków" style="font-family:'DM Mono',monospace">
+        </div>
+
+        <div class="onb-nav">
+          <button class="btn btn-ghost" onclick="goTo(1)">← Wstecz</button>
+          <span class="step-counter">Krok 2 z 4</span>
+          <button class="btn btn-primary" onclick="goTo(3)">Dalej →</button>
+        </div>
+      </div>
+
+      <!-- KROK 3: Finanse -->
+      <div class="step-panel" id="panel-3">
+        <div class="section-title">Finanse spółdzielni</div>
+        <div class="section-sub">Parametry zakupu i fundusz na utrzymanie.</div>
+
+        <div class="grid-2f">
+          <div class="form-group">
+            <label>Cena zakupu (PLN) *</label>
+            <input type="number" id="f-price" placeholder="Np. 148000" min="0">
+          </div>
+          <div class="form-group">
+            <label>Data zakupu *</label>
+            <input type="date" id="f-date">
+          </div>
+        </div>
+
+        <div class="vdivider">Fundusz eksploatacyjny</div>
+
+        <div class="form-group">
+          <label>Cel funduszu — 2-letnia prognoza kosztów (PLN) *</label>
+          <input type="number" id="f-target" placeholder="Np. 12000" min="0">
+          <span style="font-size:11px;color:var(--text3)">Ubezpieczenie, serwisy, opony, naprawy — co ile lat i za ile? Fundusz powinien to pokryć.</span>
+        </div>
+        <div class="form-group">
+          <label>Szacowane koszty rocznie (PLN)</label>
+          <input type="number" id="f-annual" placeholder="Np. 6000" min="0" oninput="calcForecast()">
+          <span style="font-size:11px;color:var(--orange2)" id="forecast-hint"></span>
+        </div>
+
+        <div class="onb-nav">
+          <button class="btn btn-ghost" onclick="goTo(2)">← Wstecz</button>
+          <span class="step-counter">Krok 3 z 4</span>
+          <button class="btn btn-primary" onclick="goTo(4)">Dalej →</button>
+        </div>
+      </div>
+
+      <!-- KROK 4: Profil założyciela -->
+      <div class="step-panel" id="panel-4">
+        <div class="section-title">Twój profil</div>
+        <div class="section-sub">Jesteś pierwszym członkiem — Twoim udziałem jest 100% do czasu dodania kolejnych.</div>
+
+        <div class="form-group">
+          <label>Imię i nazwisko *</label>
+          <input type="text" id="m-name" placeholder="Np. Mikołaj Banaś">
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="m-email" placeholder="Twój email">
+        </div>
+
+        <div class="vdivider">Podsumowanie</div>
+
+        <div id="summary" style="font-size:13px;color:var(--text2);display:flex;flex-direction:column;gap:6px;background:var(--bg3);border-radius:var(--radius-sm);padding:14px 16px;border:1px solid var(--border)"></div>
+
+        <div class="onb-nav">
+          <button class="btn btn-ghost" onclick="goTo(3)">← Wstecz</button>
+          <span class="step-counter">Krok 4 z 4</span>
+          <button class="btn btn-primary" id="submit-btn" onclick="createCooperative()">🚐 Utwórz spółdzielnię</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let currentStep = 1;
+
+function goTo(step) {
+  // Validate before advancing
+  if (step > currentStep) {
+    const err = validate(currentStep);
+    if (err) { showAlert(err); return; }
+  }
+  clearAlert();
+
+  // Update panels
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${step}`).classList.add('active');
+
+  // Update step indicators
+  for (let i = 1; i <= 4; i++) {
+    const si = document.getElementById(`si-${i}`);
+    si.classList.remove('active', 'done');
+    if (i < step) si.classList.add('done');
+    if (i === step) si.classList.add('active');
+  }
+
+  currentStep = step;
+  if (step === 4) renderSummary();
+}
+
+function validate(step) {
+  if (step === 1) {
+    if (!v('coop-name')) return 'Wpisz nazwę spółdzielni.';
+    if (!v('coop-slug')) return 'Wpisz slug (adres URL).';
+    if (!/^[a-z0-9-]+$/.test(v('coop-slug'))) return 'Slug może zawierać tylko małe litery, cyfry i myślniki.';
+  }
+  if (step === 2) {
+    if (!v('v-make') || !v('v-model')) return 'Wpisz markę i model pojazdu.';
+    if (!v('v-year')) return 'Wpisz rok produkcji.';
+    if (!v('v-plate')) return 'Wpisz numer rejestracyjny.';
+  }
+  if (step === 3) {
+    if (!v('f-price')) return 'Wpisz cenę zakupu.';
+    if (!v('f-date')) return 'Wpisz datę zakupu.';
+    if (!v('f-target')) return 'Wpisz cel funduszu.';
+  }
+  if (step === 4) {
+    if (!v('m-name')) return 'Wpisz swoje imię i nazwisko.';
+  }
+  return null;
+}
+
+function v(id) { return document.getElementById(id).value.trim(); }
+
+function calcForecast() {
+  const annual = parseFloat(document.getElementById('f-annual').value) || 0;
+  if (annual) {
+    document.getElementById('f-target').value = Math.round(annual * 2);
+    document.getElementById('forecast-hint').textContent = `→ Cel funduszu: ${formatPLN(annual * 2)} (2 lata)`;
+  }
+}
+
+function renderSummary() {
+  const s = document.getElementById('summary');
+  s.innerHTML = `
+    <div>🚐 <strong>${v('coop-name')}</strong> · <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${v('coop-slug')}</span></div>
+    <div>🚗 ${v('v-make')} ${v('v-model')} ${v('v-year')} · ${v('v-plate').toUpperCase()}</div>
+    <div>💰 Zakup: ${formatPLN(parseFloat(v('f-price')))} · ${v('f-date')}</div>
+    <div>🏦 Cel funduszu: ${formatPLN(parseFloat(v('f-target')))}</div>
+    <div>👤 Założyciel: ${v('m-name')} · udział 100%</div>
+  `;
+}
+
+async function createCooperative() {
+  const err = validate(4);
+  if (err) { showAlert(err); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.textContent = 'Tworzenie…'; btn.disabled = true;
+
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+
+  const { data, error } = await _supabase.rpc('create_cooperative', {
+    p_name:           v('coop-name'),
+    p_slug:           v('coop-slug'),
+    p_vehicle_make:   v('v-make'),
+    p_vehicle_model:  v('v-model'),
+    p_vehicle_year:   parseInt(v('v-year')),
+    p_vehicle_plate:  v('v-plate').toUpperCase(),
+    p_vehicle_vin:    v('v-vin') || null,
+    p_purchase_price: parseFloat(v('f-price')),
+    p_purchase_date:  v('f-date'),
+    p_member_name:    v('m-name'),
+    p_member_email:   v('m-email') || session.user.email,
+    p_budget_target:  parseFloat(v('f-target')),
+    p_forecast_2yr:   parseFloat(v('f-target')),
+  });
+
+  if (error) {
+    showAlert(error.message);
+    btn.textContent = '🚐 Utwórz spółdzielnię'; btn.disabled = false;
+    return;
+  }
+
+  window.location.href = 'dashboard.html';
+}
+
+function showAlert(msg) {
+  document.getElementById('global-alert').innerHTML = `<div class="alert alert-danger">${msg}</div>`;
+}
+function clearAlert() {
+  document.getElementById('global-alert').innerHTML = '';
+}
+function formatPLN(n) {
+  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n || 0);
+}
+
+// Auto-fill email from session
+(async () => {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  document.getElementById('m-email').value = session.user.email || '';
+})();
+
+// Auto-slug from name
+document.getElementById('coop-name').addEventListener('input', (e) => {
+  const slug = e.target.value
+    .toLowerCase()
+    .replace(/ą/g,'a').replace(/ę/g,'e').replace(/ó/g,'o').replace(/ś/g,'s')
+    .replace(/ł/g,'l').replace(/ż/g,'z').replace(/ź/g,'z').replace(/ć/g,'c').replace(/ń/g,'n')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  document.getElementById('coop-slug').value = slug;
+});
+</script>
+</body>
+</html>

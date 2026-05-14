@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚐</div>
+      <div class="logo-name">Nasz Kochany Kamper</div>
+      <div class="logo-sub">Spółdzielnia</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item active"><span class="nav-icon">⊞</span> Dashboard</a>
+      <a href="reservations.html" class="nav-item"><span class="nav-icon">📅</span> Rezerwacje</a>
+      <a href="balance.html" class="nav-item"><span class="nav-icon">⚖</span> Bilans</a>
+      <a href="documents.html" class="nav-item"><span class="nav-icon">📄</span> Dokumenty</a>
+      <a href="history.html" class="nav-item"><span class="nav-icon">🔧</span> Historia pojazdu</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Członkowie</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user"></div>
+      <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">↩</span> Wyloguj</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <span class="topbar-title" id="greeting">Dzień dobry</span>
+        <span id="vehicle-info" style="font-size:11px;color:var(--text3);margin-left:12px;font-family:'DM Mono',monospace"></span>
+      </div>
+      <span id="today-date" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ALERTS -->
+      <div id="alerts-area"></div>
+
+      <!-- STAT CARDS -->
+      <div class="grid-stat" style="margin-bottom:20px">
+        <div class="card">
+          <div class="stat-label">Budżet wspólny</div>
+          <div class="stat-value" id="stat-budget">—</div>
+          <div style="margin-top:8px">
+            <div class="progress-bar"><div class="progress-fill green" id="budget-bar" style="width:0%"></div></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px" id="budget-sub">cel: 2-letni fundusz</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Najbliższa rezerwacja</div>
+          <div id="next-reservation" style="font-size:13px;font-weight:600;color:var(--text);margin-top:4px">Brak</div>
+          <div id="next-res-detail" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Twoje dni w tym roku</div>
+          <div class="stat-value" id="stat-mydays">0</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">z <span id="stat-totaldays">0</span> łącznie</div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Ostatni serwis</div>
+          <div id="stat-lastservice" style="font-size:13px;font-weight:600;color:var(--text);margin-top:4px">—</div>
+          <div id="stat-lastservice-detail" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:20px">
+
+        <!-- SHARES DONUT -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="margin-bottom:0">Udziały w spółdzielni</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:24px">
+            <canvas id="donut-chart" width="140" height="140" style="flex-shrink:0"></canvas>
+            <div class="share-legend" id="share-legend"></div>
+          </div>
+        </div>
+
+        <!-- UPCOMING RESERVATIONS -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="margin-bottom:0">Nadchodzące rezerwacje</div>
+            <a href="reservations.html" class="btn btn-ghost btn-sm">Kalendarz →</a>
+          </div>
+          <div id="upcoming-list">
+            <div style="color:var(--text3);font-size:13px">Brak nadchodzących rezerwacji.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+
+        <!-- RECENT EXPENSES -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="margin-bottom:0">Ostatnie wydatki</div>
+            <a href="balance.html" class="btn btn-ghost btn-sm">Bilans →</a>
+          </div>
+          <div id="expenses-list">
+            <div style="color:var(--text3);font-size:13px">Brak wydatków.</div>
+          </div>
+        </div>
+
+        <!-- RECENT HISTORY -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="margin-bottom:0">Historia pojazdu</div>
+            <a href="history.html" class="btn btn-ghost btn-sm">Pełna historia →</a>
+          </div>
+          <div id="history-list">
+            <div style="color:var(--text3);font-size:13px">Brak wpisów.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const SHARE_COLORS = ['#c17f3a','#3a6ec1','#3a7c5a','#8a4ec1'];
+
+const DUMMY = {
+  cooperative: { name: 'Ekipa Kamperowa', vehicle_make: 'Volkswagen', vehicle_model: 'T5 Westfalia', vehicle_year: 2017, vehicle_plate: 'KR 4WX20' },
+  member: { name: 'Mikołaj Banaś', share_pct: 40, cooperatives: { name: 'Ekipa Kamperowa' } },
+  members: [
+    { name: 'Mikołaj Banaś', share_pct: 40 },
+    { name: 'Kasia Wiśniewska', share_pct: 35 },
+    { name: 'Tomek Nowak', share_pct: 25 },
+  ],
+  budget: { current_balance: 8570, target_balance: 12000 },
+  nextRes: { start_date: '2026-06-10', end_date: '2026-06-24', members: { name: 'Mikołaj Banaś' }, status: 'confirmed' },
+  myDays: 22, totalDays: 58,
+  lastService: { date: '2026-04-10', title: 'Wymiana oleju + filtry' },
+  upcoming: [
+    { members: { name: 'Kasia Wiśniewska' }, start_date: '2026-05-18', end_date: '2026-05-25', status: 'confirmed' },
+    { members: { name: 'Mikołaj Banaś'   }, start_date: '2026-06-10', end_date: '2026-06-24', status: 'confirmed' },
+    { members: { name: 'Tomek Nowak'     }, start_date: '2026-07-05', end_date: '2026-07-25', status: 'pending'   },
+  ],
+  expenses: [
+    { date: '2026-04-10', category: 'service',   description: 'Wymiana oleju + filtry',          amount: 480,  members: { name: 'Mikołaj Banaś'    } },
+    { date: '2026-03-25', category: 'tires',     description: 'Opony letnie 4 szt.',              amount: 2200, members: { name: 'Kasia Wiśniewska' } },
+    { date: '2026-01-10', category: 'insurance', description: 'OC/AC roczne',                    amount: 3800, members: { name: 'Mikołaj Banaś'    } },
+    { date: '2026-02-18', category: 'repair',    description: 'Naprawa alternatora',              amount: 950,  members: { name: 'Tomek Nowak'      } },
+  ],
+  history: [
+    { date: '2026-04-10', title: 'Wymiana oleju + filtry',      description: '5W-30 Castrol — 8L' },
+    { date: '2026-03-25', title: 'Montaż opon letnich',         description: '4x Michelin Agilis 225/75 R16' },
+    { date: '2026-02-18', title: 'Naprawa alternatora',         description: 'Alternator Bosch — wymiana' },
+    { date: '2025-11-05', title: 'Przegląd 60 000 km',          description: 'Rozrząd, płyny, filtry' },
+  ],
+};
+
+async function init() {
+  const session = await requireAuth();
+  if (!session) return;
+
+  // Try real member, fall back to dummy
+  let member = await getCurrentMember(session.user.id);
+  const useDummy = !member;
+  if (useDummy) member = DUMMY.member;
+
+  renderSidebarUser(member);
+
+  // Cooperative name in logo
+  const logoName = document.querySelector('.logo-name');
+  if (logoName) logoName.textContent = member.cooperatives?.name || 'Nasz Kochany Kamper';
+
+  // Vehicle info in topbar
+  if (useDummy) {
+    const vinfo = document.getElementById('vehicle-info');
+    if (vinfo) vinfo.textContent = `${DUMMY.cooperative.vehicle_make} ${DUMMY.cooperative.vehicle_model} · ${DUMMY.cooperative.vehicle_plate}`;
+  }
+
+  const h = new Date().getHours();
+  const greet = h < 18 ? 'Dzień dobry' : 'Dobry wieczór';
+  document.getElementById('greeting').textContent = `${greet}, ${member?.name?.split(' ')[0] || ''}`;
+  document.getElementById('today-date').textContent = new Date().toLocaleDateString('pl-PL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  if (useDummy) { loadDummy(); return; }
+
+  await Promise.all([
+    loadBudget(),
+    loadShares(),
+    loadNextReservation(session.user.id),
+    loadMyDays(session.user.id),
+    loadUpcoming(),
+    loadRecentExpenses(),
+    loadRecentHistory(),
+    loadLastService(),
+    checkAlerts(session.user.id, member),
+  ]);
+}
+
+function loadDummy() {
+  // Budget
+  const d = DUMMY;
+  document.getElementById('stat-budget').textContent = formatPLN(d.budget.current_balance);
+  const pct = Math.min(100, Math.round((d.budget.current_balance / d.budget.target_balance) * 100));
+  document.getElementById('budget-bar').style.width = pct + '%';
+  document.getElementById('budget-sub').textContent = `cel: ${formatPLN(d.budget.target_balance)} (2 lata)`;
+
+  // Shares donut
+  const legend = document.getElementById('share-legend');
+  legend.innerHTML = d.members.map((m, i) => `
+    <div class="share-item">
+      <div class="share-dot" style="background:${SHARE_COLORS[i]}"></div>
+      <div class="share-name">${m.name}</div>
+      <div class="share-pct">${m.share_pct}%</div>
+    </div>`).join('');
+  new Chart(document.getElementById('donut-chart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: d.members.map(m=>m.name), datasets: [{ data: d.members.map(m=>m.share_pct), backgroundColor: SHARE_COLORS, borderWidth: 2, borderColor: '#2a3124' }] },
+    options: { plugins: { legend: { display: false } }, cutout: '68%' }
+  });
+
+  // Next reservation
+  document.getElementById('next-reservation').textContent = `${formatDate(d.nextRes.start_date)} – ${formatDate(d.nextRes.end_date)}`;
+  document.getElementById('next-res-detail').textContent = d.nextRes.members.name;
+
+  // My days
+  document.getElementById('stat-mydays').textContent = d.myDays;
+  document.getElementById('stat-totaldays').textContent = d.totalDays;
+
+  // Last service
+  document.getElementById('stat-lastservice').textContent = formatDate(d.lastService.date);
+  document.getElementById('stat-lastservice-detail').textContent = d.lastService.title;
+
+  // Upcoming
+  document.getElementById('upcoming-list').innerHTML = d.upcoming.map(r => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div>
+        <div style="font-size:13px;font-weight:500">${r.members.name}</div>
+        <div style="font-size:12px;color:var(--text3)">${formatDate(r.start_date)} – ${formatDate(r.end_date)} · ${daysBetween(r.start_date,r.end_date)} dni</div>
+      </div>
+      <span class="badge ${r.status==='confirmed'?'badge-green':'badge-amber'}">${r.status==='confirmed'?'Zatwierdzona':'Oczekuje'}</span>
+    </div>`).join('');
+
+  // Expenses
+  const catIcon = { service:'🔧', tires:'🔄', repair:'🛠', insurance:'🛡', other:'📋' };
+  document.getElementById('expenses-list').innerHTML = d.expenses.map(e => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">${catIcon[e.category]||'📋'}</span>
+        <div>
+          <div style="font-size:13px;font-weight:500">${e.description}</div>
+          <div style="font-size:12px;color:var(--text3)">${formatDate(e.date)} · ${e.members.name}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:600">${formatPLN(e.amount)}</div>
+    </div>`).join('');
+
+  // History
+  document.getElementById('history-list').innerHTML = d.history.map(h => `
+    <div style="padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;justify-content:space-between">
+        <div style="font-size:13px;font-weight:500">${h.title}</div>
+        <div style="font-size:12px;color:var(--text3)">${formatDate(h.date)}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text3)">${h.description}</div>
+    </div>`).join('');
+
+  // Vehicle info
+  document.getElementById('vehicle-info').textContent =
+    `${DUMMY.cooperative.vehicle_make} ${DUMMY.cooperative.vehicle_model} · ${DUMMY.cooperative.vehicle_plate}`;
+}
+
+async function loadBudget() {
+  const { data } = await _supabase.from('budget').select('*').single();
+  if (!data) return;
+  document.getElementById('stat-budget').textContent = formatPLN(data.current_balance);
+  const pct = Math.min(100, Math.round((data.current_balance / data.target_balance) * 100));
+  document.getElementById('budget-bar').style.width = pct + '%';
+  if (pct < 50) document.getElementById('budget-bar').classList.replace('green','red');
+  document.getElementById('budget-sub').textContent = `cel: ${formatPLN(data.target_balance)} (2 lata)`;
+}
+
+async function loadShares() {
+  const { data } = await _supabase.from('members').select('name, share_pct').order('share_pct', { ascending: false });
+  if (!data?.length) return;
+
+  const legend = document.getElementById('share-legend');
+  legend.innerHTML = data.map((m, i) => `
+    <div class="share-item">
+      <div class="share-dot" style="background:${SHARE_COLORS[i % SHARE_COLORS.length]}"></div>
+      <div class="share-name">${m.name}</div>
+      <div class="share-pct">${m.share_pct}%</div>
+    </div>
+  `).join('');
+
+  const ctx = document.getElementById('donut-chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: data.map(m => m.name),
+      datasets: [{ data: data.map(m => m.share_pct), backgroundColor: SHARE_COLORS, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}%` } } },
+      cutout: '68%',
+    }
+  });
+}
+
+async function loadNextReservation(userId) {
+  const today = new Date().toISOString().slice(0,10);
+  const { data } = await _supabase.from('reservations')
+    .select('*, members(name)')
+    .gte('end_date', today)
+    .order('start_date')
+    .limit(1)
+    .single();
+  if (!data) return;
+  const isMe = data.member_id === userId; // will compare after getting member
+  document.getElementById('next-reservation').textContent =
+    `${formatDate(data.start_date)} – ${formatDate(data.end_date)}`;
+  document.getElementById('next-res-detail').textContent =
+    `${data.members?.name || ''}${data.status === 'pending' ? ' · ⏳ oczekuje zatwierdzenia' : ''}`;
+}
+
+async function loadMyDays(userId) {
+  const year = new Date().getFullYear();
+  const { data } = await _supabase.from('reservations')
+    .select('start_date, end_date, member_id')
+    .eq('status', 'confirmed')
+    .gte('start_date', `${year}-01-01`)
+    .lte('end_date', `${year}-12-31`);
+  if (!data) return;
+  const total = data.reduce((s, r) => s + daysBetween(r.start_date, r.end_date), 0);
+  const mine = data.filter(r => r.member_id === userId).reduce((s, r) => s + daysBetween(r.start_date, r.end_date), 0);
+  // userId nie matchuje bezpośrednio, trzeba przez members - uproszczenie: pokazujemy total
+  document.getElementById('stat-mydays').textContent = mine || total;
+  document.getElementById('stat-totaldays').textContent = total;
+}
+
+async function loadUpcoming() {
+  const today = new Date().toISOString().slice(0,10);
+  const { data } = await _supabase.from('reservations')
+    .select('*, members(name)')
+    .gte('end_date', today)
+    .order('start_date')
+    .limit(5);
+  if (!data?.length) return;
+  const el = document.getElementById('upcoming-list');
+  el.innerHTML = data.map(r => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div>
+        <div style="font-size:13px;font-weight:500">${r.members?.name || '—'}</div>
+        <div style="font-size:12px;color:var(--text3)">${formatDate(r.start_date)} – ${formatDate(r.end_date)} · ${daysBetween(r.start_date,r.end_date)} dni</div>
+      </div>
+      <span class="badge ${r.status === 'confirmed' ? 'badge-green' : r.status === 'pending' ? 'badge-amber' : 'badge-red'}">${r.status === 'confirmed' ? 'Zatwierdzona' : r.status === 'pending' ? 'Oczekuje' : 'Odrzucona'}</span>
+    </div>
+  `).join('');
+}
+
+async function loadRecentExpenses() {
+  const { data } = await _supabase.from('expenses')
+    .select('*, members(name)')
+    .order('date', { ascending: false })
+    .limit(5);
+  if (!data?.length) return;
+  const el = document.getElementById('expenses-list');
+  const catIcon = { service:'🔧', tires:'🔄', repair:'🛠', insurance:'🛡', other:'📋' };
+  el.innerHTML = data.map(e => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">${catIcon[e.category] || '📋'}</span>
+        <div>
+          <div style="font-size:13px;font-weight:500">${e.description}</div>
+          <div style="font-size:12px;color:var(--text3)">${formatDate(e.date)} · ${e.members?.name || ''}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:var(--text)">${formatPLN(e.amount)}</div>
+    </div>
+  `).join('');
+}
+
+async function loadRecentHistory() {
+  const { data } = await _supabase.from('vehicle_history')
+    .select('*, members(name)')
+    .order('date', { ascending: false })
+    .limit(4);
+  if (!data?.length) return;
+  const el = document.getElementById('history-list');
+  el.innerHTML = data.map(h => `
+    <div style="padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:13px;font-weight:500">${h.title}</div>
+        <div style="font-size:12px;color:var(--text3)">${formatDate(h.date)}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text3)">${h.description || ''}</div>
+    </div>
+  `).join('');
+}
+
+async function loadLastService() {
+  const { data } = await _supabase.from('vehicle_history')
+    .select('*')
+    .eq('type', 'service')
+    .order('date', { ascending: false })
+    .limit(1)
+    .single();
+  if (!data) return;
+  document.getElementById('stat-lastservice').textContent = formatDate(data.date);
+  document.getElementById('stat-lastservice-detail').textContent = data.title;
+}
+
+async function checkAlerts(userId, member) {
+  const el = document.getElementById('alerts-area');
+  const alerts = [];
+
+  // Check budget
+  const { data: budget } = await _supabase.from('budget').select('*').single();
+  if (budget && budget.current_balance < budget.target_balance * 0.5) {
+    alerts.push(`<div class="alert alert-warning">⚠ Budżet wynosi ${Math.round((budget.current_balance/budget.target_balance)*100)}% celu — rozważcie dodatkową składkę.</div>`);
+  }
+
+  // Check if member has unpaid contributions
+  const { data: contrib } = await _supabase.from('contributions')
+    .select('*')
+    .eq('status', 'pending')
+    .eq('member_id', member?.id);
+  if (contrib?.length) {
+    alerts.push(`<div class="alert alert-danger">🔴 Masz ${contrib.length} niezapłaconą składkę. Sprawdź <a href="balance.html" style="color:inherit;font-weight:600">Bilans</a>.</div>`);
+  }
+
+  el.innerHTML = alerts.join('');
+}
+
+// ── HELPERS ─────────────────────────────────────────────
+function formatPLN(n) {
+  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(n || 0);
+}
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000) + 1;
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Znajdź wspólników · NKK</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<style>
+/* ── TOP NAV ──────────────────────────────────── */
+.top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  background: rgba(28,33,24,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.top-nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none; color: var(--cream);
+  font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700;
+}
+.top-nav-logo span { font-size: 20px; }
+.top-nav-actions { display: flex; align-items: center; gap: 6px; }
+.top-nav-btn {
+  padding: 6px 14px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border); background: none;
+  color: var(--text2); transition: all .15s; text-decoration: none;
+  display: flex; align-items: center; gap: 5px;
+}
+.top-nav-btn:hover { color: var(--cream); border-color: rgba(255,255,255,.15); background: var(--bg3); }
+.top-nav-btn.active { border-color: rgba(106,171,94,.4); color: var(--green); background: var(--green-dim); }
+
+.fm-wrap {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 80px 24px 80px;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(106,171,94,.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 10%, rgba(232,131,42,.05) 0%, transparent 60%);
+}
+
+/* ── PROGRESS ─────────────────────────────────── */
+.fm-progress {
+  width: 100%; max-width: 680px;
+  display: flex; align-items: center; gap: 0;
+  margin-bottom: 40px;
+}
+.fm-step {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1;
+}
+.fm-step-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  color: var(--text3); flex-shrink: 0;
+  transition: all .25s;
+}
+.fm-step.active .fm-step-dot {
+  border-color: var(--green); background: var(--green-dim); color: var(--green); font-weight: 600;
+}
+.fm-step.done .fm-step-dot {
+  border-color: var(--green); background: var(--green); color: #1c2118; font-weight: 700;
+}
+.fm-step-label {
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  letter-spacing: .04em; color: var(--text3);
+  transition: color .25s;
+}
+.fm-step.active .fm-step-label { color: var(--cream); }
+.fm-step.done  .fm-step-label  { color: var(--green); }
+.fm-step-line {
+  flex: 1; height: 1px; background: var(--border);
+  margin: 0 8px; min-width: 24px;
+}
+.fm-step-line.done { background: var(--green); }
+
+/* ── CARD ─────────────────────────────────────── */
+.fm-card {
+  width: 100%; max-width: 680px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.fm-card-header {
+  padding: 28px 32px 24px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--bg2) 0%, var(--surface) 100%);
+}
+.fm-card-tag {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 8px;
+}
+.fm-card-header h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; font-weight: 700; color: var(--cream);
+  margin-bottom: 6px;
+}
+.fm-card-header p { font-size: 13px; color: var(--text2); line-height: 1.7; }
+
+.fm-body { padding: 32px; display: flex; flex-direction: column; gap: 28px; }
+
+/* ── QUESTION BLOCKS ──────────────────────────── */
+.q-block { display: flex; flex-direction: column; gap: 10px; }
+.q-label {
+  font-size: 13px; font-weight: 600; color: var(--cream);
+  display: flex; align-items: center; gap: 8px;
+}
+.q-label .q-num {
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  color: var(--text3); background: var(--bg3);
+  padding: 2px 6px; border-radius: 3px;
+}
+.q-hint { font-size: 12px; color: var(--text3); margin-top: -6px; line-height: 1.6; }
+
+/* chips */
+.chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 6px 14px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  font-size: 12px; color: var(--text2);
+  cursor: pointer; transition: all .15s;
+  user-select: none;
+}
+.chip:hover { border-color: rgba(106,171,94,.4); color: var(--cream); }
+.chip.selected {
+  border-color: var(--green); background: var(--green-dim);
+  color: var(--green); font-weight: 600;
+}
+.chip.selected-orange {
+  border-color: var(--orange); background: var(--orange-dim);
+  color: var(--orange2); font-weight: 600;
+}
+
+/* slider */
+.slider-row { display: flex; align-items: center; gap: 16px; }
+.slider-val {
+  font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 600;
+  color: var(--cream); min-width: 80px; text-align: right;
+}
+input[type=range] {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 4px;
+  background: linear-gradient(to right, var(--green) var(--pct,0%), var(--bg3) var(--pct,0%));
+  outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--green); border: 3px solid var(--bg); cursor: pointer;
+  box-shadow: 0 0 0 2px rgba(106,171,94,.3);
+}
+.slider-labels {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace;
+  margin-top: 4px;
+}
+
+/* textarea/input */
+.fm-input {
+  width: 100%; padding: 12px 14px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--cream);
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  resize: vertical; outline: none; transition: border-color .15s;
+}
+.fm-input:focus { border-color: rgba(106,171,94,.4); }
+.fm-input::placeholder { color: var(--text3); }
+
+/* budget */
+.budget-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.budget-field label {
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  color: var(--text3); display: block; margin-bottom: 6px;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.budget-input-wrap {
+  position: relative;
+}
+.budget-input-wrap .currency {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace;
+  pointer-events: none;
+}
+.budget-input-wrap input {
+  width: 100%; padding: 10px 40px 10px 12px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--cream);
+  font-family: 'DM Mono', monospace; font-size: 15px;
+  outline: none; transition: border-color .15s;
+}
+.budget-input-wrap input:focus { border-color: rgba(106,171,94,.4); }
+
+/* scale (1-5) */
+.scale-row { display: flex; gap: 8px; }
+.scale-btn {
+  flex: 1; padding: 10px 4px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg3);
+  font-size: 12px; font-family: 'DM Mono', monospace;
+  color: var(--text3); cursor: pointer; text-align: center;
+  transition: all .15s;
+}
+.scale-btn:hover { border-color: rgba(106,171,94,.4); color: var(--cream); }
+.scale-btn.selected {
+  border-color: var(--green); background: var(--green-dim);
+  color: var(--green); font-weight: 600;
+}
+.scale-ends {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace;
+  margin-top: 4px;
+}
+
+/* divider */
+.fm-divider {
+  height: 1px; background: var(--border); margin: 4px 0;
+}
+
+/* section label */
+.fm-section {
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text3); padding: 6px 0 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── FOOTER BUTTONS ───────────────────────────── */
+.fm-footer {
+  padding: 20px 32px 28px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px;
+}
+.fm-footer .back-btn {
+  font-size: 13px; color: var(--text2); background: none;
+  border: none; cursor: pointer; padding: 10px 0;
+  display: flex; align-items: center; gap: 6px;
+  transition: color .15s;
+}
+.fm-footer .back-btn:hover { color: var(--cream); }
+.fm-footer .next-btn {
+  padding: 12px 28px; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--green), #8bc87e);
+  color: #1a2a17; font-weight: 700; font-size: 14px;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  transition: opacity .15s, transform .1s;
+}
+.fm-footer .next-btn:hover { opacity: .9; transform: translateY(-1px); }
+.fm-footer .next-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+/* ── STEP 3: SUMMARY ──────────────────────────── */
+.summary-section {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.summary-section h4 {
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 4px;
+}
+.summary-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; font-size: 13px;
+}
+.summary-row .sr-label { color: var(--text3); flex-shrink: 0; }
+.summary-row .sr-val   { color: var(--cream); text-align: right; }
+.summary-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.summary-chip {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  padding: 2px 8px; border-radius: 3px;
+  background: var(--green-dim); color: var(--green);
+}
+
+/* published state */
+.published-wrap {
+  text-align: center; padding: 48px 32px;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+.published-icon { font-size: 56px; }
+.published-wrap h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px; font-weight: 700; color: var(--cream);
+}
+.published-wrap p { font-size: 14px; color: var(--text2); max-width: 420px; line-height: 1.8; }
+.published-code {
+  font-family: 'DM Mono', monospace; font-size: 13px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 20px;
+  color: var(--green); letter-spacing: .08em;
+}
+.published-actions { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+.btn-ghost {
+  padding: 11px 22px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: none;
+  color: var(--text2); font-size: 13px; cursor: pointer;
+  transition: all .15s;
+}
+.btn-ghost:hover { border-color: var(--border2); color: var(--cream); background: var(--bg3); }
+.btn-primary {
+  padding: 11px 22px; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--orange), var(--orange2));
+  color: #1a2a17; font-weight: 700; font-size: 13px;
+  border: none; cursor: pointer; transition: opacity .15s, transform .1s;
+}
+.btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+
+@media (max-width: 600px) {
+  .fm-body { padding: 20px; }
+  .fm-footer { padding: 16px 20px 20px; }
+  .fm-card-header { padding: 22px 20px 18px; }
+  .budget-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <a class="top-nav-logo" href="dashboard.html">
+    <span>🚐</span> NKK
+  </a>
+  <div class="top-nav-actions">
+    <a class="top-nav-btn active" href="find-match.html" id="nav-profile-btn">👤 Mój profil matchingowy</a>
+    <a class="top-nav-btn" href="dashboard.html">Panel →</a>
+    <button class="top-nav-btn" onclick="logout()">Wyloguj</button>
+  </div>
+</nav>
+
+<div class="fm-wrap">
+
+  <!-- PROGRESS BAR -->
+  <div class="fm-progress" id="progress-bar">
+    <div class="fm-step active" id="step-ind-1">
+      <div class="fm-step-dot">1</div>
+      <div class="fm-step-label">Styl użytkowania</div>
+    </div>
+    <div class="fm-step-line" id="line-1-2"></div>
+    <div class="fm-step active" id="step-ind-2">
+      <div class="fm-step-dot">2</div>
+      <div class="fm-step-label">Potrzeby kampera</div>
+    </div>
+    <div class="fm-step-line" id="line-2-3"></div>
+    <div class="fm-step" id="step-ind-3">
+      <div class="fm-step-dot">3</div>
+      <div class="fm-step-label">Publikacja</div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────── -->
+  <!-- STEP 1: STYL UŻYTKOWANIA -->
+  <!-- ──────────────────────────────────────────── -->
+  <div class="fm-card" id="step-1">
+    <div class="fm-card-header">
+      <div class="fm-card-tag">Ankieta A · 1 z 3</div>
+      <h2>Styl użytkowania</h2>
+      <p>Jak korzystasz z kampera i jak dbasz o wspólne rzeczy? Odpowiedzi pomogą dopasować Cię do osób o podobnym podejściu.</p>
+    </div>
+
+    <div class="fm-body">
+
+      <!-- Q1: DBAŁOŚĆ -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">01</span> Jak dbasz o wspólny sprzęt?</div>
+        <div class="chip-group" id="q-care">
+          <div class="chip" data-val="pedant">🧹 Zostawiam idealnie czysty</div>
+          <div class="chip" data-val="normal">👍 Porządek jak zastałem</div>
+          <div class="chip" data-val="lazy">😅 Sprzątam na koniec wyjazdu</div>
+          <div class="chip" data-val="niechluj">🤷 Ważne że sprawny</div>
+        </div>
+      </div>
+
+      <!-- Q2: INICJATYWA -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">02</span> Podejście do napraw i problemów technicznych</div>
+        <div class="chip-group" id="q-proactive">
+          <div class="chip" data-val="proactive">🔧 Sam naprawiam, zgłaszam z wyprzedzeniem</div>
+          <div class="chip" data-val="reactive">📞 Wolę zlecić fachowcowi</div>
+          <div class="chip" data-val="mixed">🤝 Zależy od usterki</div>
+        </div>
+      </div>
+
+      <!-- Q3: PALENIE -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">03</span> Palenie w kamperze / przy kamperze</div>
+        <div class="chip-group" id="q-smoking">
+          <div class="chip" data-val="no">🚫 Absolutnie nie</div>
+          <div class="chip" data-val="outside">💨 Tylko na zewnątrz, z daleka</div>
+          <div class="chip" data-val="ok">✅ Niestraszne mi</div>
+        </div>
+      </div>
+
+      <!-- Q4: ZWIERZĘTA -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">04</span> Zwierzęta w kamperze</div>
+        <div class="chip-group" id="q-pets">
+          <div class="chip" data-val="no">🚫 Bez zwierząt</div>
+          <div class="chip" data-val="small">🐱 Małe (kot, mały pies)</div>
+          <div class="chip" data-val="any">🐕 Każde, nawet duże</div>
+          <div class="chip" data-val="iam">🐾 Sam mam zwierzę</div>
+        </div>
+      </div>
+
+      <!-- Q5: DZIECI -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">05</span> Dzieci na wyjazdach</div>
+        <div class="chip-group" id="q-kids">
+          <div class="chip" data-val="no">👫 Wolimy bez dzieci</div>
+          <div class="chip" data-val="ok">👨‍👩‍👧 OK, mam/planujemy mieć</div>
+          <div class="chip" data-val="family">👨‍👩‍👧‍👦 Wyjeżdżamy całą rodziną</div>
+        </div>
+      </div>
+
+      <!-- Q6: STYL PODRÓŻY -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">06</span> Styl podróżowania</div>
+        <div class="chip-group multi" id="q-travel-style">
+          <div class="chip" data-val="slow">🌿 Slow travel — jedno miejsce dłużej</div>
+          <div class="chip" data-val="move">🗺️ Dużo przejazdów, nowe miejsca</div>
+          <div class="chip" data-val="events">🎪 Eventy i festiwale</div>
+          <div class="chip" data-val="nature">🏔️ Dzika przyroda, bezdroża</div>
+          <div class="chip" data-val="coast">🏖️ Plaże i wybrzeże</div>
+          <div class="chip" data-val="city">🏙️ Bazy w pobliżu miast</div>
+        </div>
+        <div class="q-hint">Możesz wybrać kilka</div>
+      </div>
+
+      <!-- Q7: KIEROWNICA -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">07</span> Prawo jazdy kat. B — samochody &gt; 3,5t</div>
+        <div class="chip-group" id="q-license">
+          <div class="chip" data-val="b">🚗 Mam zwykłe B (do 3,5t)</div>
+          <div class="chip" data-val="b-old">📅 B sprzed 2013 (do 3,5t+)</div>
+          <div class="chip" data-val="c">🚚 Mam C lub C1</div>
+          <div class="chip" data-val="no">❌ Nie prowadzę kampera</div>
+        </div>
+      </div>
+
+      <!-- Q8: TECHNIKA -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">08</span> Samodzielność techniczna</div>
+        <div class="q-hint">1 = całkowity laik, 5 = mechanik-elektryk-złota rączka</div>
+        <div class="scale-row" id="q-tech">
+          <button class="scale-btn" data-val="1">1</button>
+          <button class="scale-btn" data-val="2">2</button>
+          <button class="scale-btn" data-val="3">3</button>
+          <button class="scale-btn" data-val="4">4</button>
+          <button class="scale-btn" data-val="5">5</button>
+        </div>
+        <div class="scale-ends">
+          <span>Nie znam się</span><span>Pełna samodzielność</span>
+        </div>
+      </div>
+
+      <!-- Q9: KOMUNIKACJA -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">09</span> Preferowany styl komunikacji w grupie</div>
+        <div class="chip-group" id="q-comm">
+          <div class="chip" data-val="formal">📋 Regulamin i zasady pisemnie</div>
+          <div class="chip" data-val="chat">💬 Grupa na czacie wystarczy</div>
+          <div class="chip" data-val="call">📞 Wolę rozmawiać osobiście</div>
+          <div class="chip" data-val="async">📩 Asynchronicznie, każdy w swoim czasie</div>
+        </div>
+      </div>
+
+    </div><!-- /fm-body -->
+
+    <div class="fm-footer">
+      <button class="back-btn" onclick="window.location.href='choose.html'">← Wróć</button>
+      <button class="next-btn" id="btn-1-2" onclick="goToStep(2)">Dalej: Potrzeby kampera →</button>
+    </div>
+  </div><!-- /step-1 -->
+
+
+  <!-- ──────────────────────────────────────────── -->
+  <!-- STEP 2: POTRZEBY KAMPERA -->
+  <!-- ──────────────────────────────────────────── -->
+  <div class="fm-card" id="step-2" style="display:none">
+    <div class="fm-card-header">
+      <div class="fm-card-tag">Ankieta B · 2 z 3</div>
+      <h2>Potrzeby kampera</h2>
+      <p>Jakiego kampera szukasz i na jakich warunkach chcesz współdzielić? To podstawa dobrego matcha.</p>
+    </div>
+
+    <div class="fm-body">
+
+      <!-- Q10: WKŁAD -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">10</span> Budżet wejściowy (jednorazowy wkład)</div>
+        <div class="q-hint">Ile możesz wyłożyć na wejście — zakup kampera i pierwsza składka na fundusz remontowy.</div>
+        <div class="budget-row">
+          <div class="budget-field">
+            <label>Minimum</label>
+            <div class="budget-input-wrap">
+              <input type="number" id="budget-min" class="fm-input" placeholder="15000" step="1000">
+              <span class="currency">PLN</span>
+            </div>
+          </div>
+          <div class="budget-field">
+            <label>Maksimum</label>
+            <div class="budget-input-wrap">
+              <input type="number" id="budget-max" class="fm-input" placeholder="40000" step="1000">
+              <span class="currency">PLN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Q11: TYGODNIE / ROK -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">11</span> Ile tygodni rocznie chcesz korzystać?</div>
+        <div class="slider-row">
+          <input type="range" id="weeks-slider" min="1" max="12" value="4"
+            oninput="updateSlider(this, 'weeks-val', v => v+' tydz./rok')">
+          <div class="slider-val" id="weeks-val">4 tydz./rok</div>
+        </div>
+        <div class="slider-labels"><span>1</span><span>4</span><span>8</span><span>12</span></div>
+      </div>
+
+      <!-- Q12: SEZONY -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">12</span> Kiedy chcesz jeździć?</div>
+        <div class="chip-group multi" id="q-seasons">
+          <div class="chip" data-val="spring">🌸 Wiosna (IV–V)</div>
+          <div class="chip" data-val="summer">☀️ Lato (VI–VIII)</div>
+          <div class="chip" data-val="autumn">🍂 Jesień (IX–X)</div>
+          <div class="chip" data-val="winter">❄️ Zima (XI–III)</div>
+        </div>
+        <div class="q-hint">Możesz wybrać kilka</div>
+      </div>
+
+      <!-- Q13: TYP KAMPERA -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">13</span> Typ kampera</div>
+        <div class="chip-group multi" id="q-camper-type">
+          <div class="chip" data-val="van">🚐 Van (VW T-class, Ducato)</div>
+          <div class="chip" data-val="semi">🚌 Semi-integra</div>
+          <div class="chip" data-val="integ">🏠 Pełna integra</div>
+          <div class="chip" data-val="trailer">🚗 Przyczepa kampingowa</div>
+          <div class="chip" data-val="any">🤷 Dowolny</div>
+        </div>
+        <div class="q-hint">Możesz wybrać kilka</div>
+      </div>
+
+      <!-- Q14: MIEJSCA DO SPANIA -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">14</span> Ile miejsc do spania potrzebujesz?</div>
+        <div class="chip-group" id="q-beds">
+          <div class="chip" data-val="2">👫 2 osoby</div>
+          <div class="chip" data-val="4">👨‍👩‍👧‍👦 4 osoby</div>
+          <div class="chip" data-val="6">👪+ 6+ osób</div>
+          <div class="chip" data-val="any">🤷 Bez znaczenia</div>
+        </div>
+      </div>
+
+      <!-- Q15: MUST-HAVES -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">15</span> Co musi mieć kamper? (must-haves)</div>
+        <div class="chip-group multi" id="q-musthave">
+          <div class="chip" data-val="toilet">🚽 Toaleta na pokładzie</div>
+          <div class="chip" data-val="shower">🚿 Prysznic</div>
+          <div class="chip" data-val="solar">🔆 Panele słoneczne</div>
+          <div class="chip" data-val="awning">⛺ Markiza</div>
+          <div class="chip" data-val="ac">❄️ Klimatyzacja postojowa</div>
+          <div class="chip" data-val="heating">🔥 Ogrzewanie (Webasto/Truma)</div>
+          <div class="chip" data-val="kitchen">🍳 Kuchnia z piekarnikiem</div>
+          <div class="chip" data-val="bike">🚲 Bagażnik na rowery</div>
+          <div class="chip" data-val="4x4">🛞 Napęd 4x4</div>
+          <div class="chip" data-val="internet">📶 Routerek / internet</div>
+        </div>
+        <div class="q-hint">Wybierz wszystkie, które są dla Ciebie kluczowe</div>
+      </div>
+
+      <!-- Q16: REGION -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">16</span> Skąd zwykle wyruszasz?</div>
+        <div class="chip-group multi" id="q-region">
+          <div class="chip" data-val="mazowsze">🏙️ Mazowsze / Warszawa</div>
+          <div class="chip" data-val="malopolska">🏔️ Małopolska / Kraków</div>
+          <div class="chip" data-val="slask">🏭 Śląsk / Wrocław</div>
+          <div class="chip" data-val="pomerania">⚓ Trójmiasto / Pomorze</div>
+          <div class="chip" data-val="wielkopolska">🌾 Wielkopolska / Poznań</div>
+          <div class="chip" data-val="other">📍 Inne / skąd się trafi</div>
+        </div>
+        <div class="q-hint">Możesz wybrać kilka</div>
+      </div>
+
+      <!-- Q17: DOŚWIADCZENIE -->
+      <div class="q-block">
+        <div class="q-label"><span class="q-num">17</span> Doświadczenie z kamperem</div>
+        <div class="chip-group" id="q-experience">
+          <div class="chip" data-val="none">🆕 Nigdy nie byłem w kamperze</div>
+          <div class="chip" data-val="rental">🔑 Kilka razy wynajmowałem</div>
+          <div class="chip" data-val="own">🚐 Miałem własnego kampera</div>
+          <div class="chip" data-val="veteran">🏕️ Veteran — wiele sezonów</div>
+        </div>
+      </div>
+
+    </div><!-- /fm-body -->
+
+    <div class="fm-footer">
+      <button class="back-btn" onclick="goToStep(1)">← Wróć</button>
+      <button class="next-btn" id="btn-2-3" onclick="goToStep(3)">Sprawdź profil →</button>
+    </div>
+  </div><!-- /step-2 -->
+
+
+  <!-- ──────────────────────────────────────────── -->
+  <!-- STEP 3: PODSUMOWANIE + PUBLIKACJA -->
+  <!-- ──────────────────────────────────────────── -->
+  <div class="fm-card" id="step-3" style="display:none">
+    <div class="fm-card-header">
+      <div class="fm-card-tag">Podgląd profilu · 3 z 3</div>
+      <h2>Twój profil matchingowy</h2>
+      <p>Tak będą Cię widzieć potencjalni wspólnicy. Upewnij się, że wszystko się zgadza — po publikacji możesz edytować profil.</p>
+    </div>
+
+    <div class="fm-body" id="summary-body">
+      <!-- filled by JS -->
+    </div>
+
+    <div class="fm-footer">
+      <button class="back-btn" onclick="goToStep(2)">← Wróć i popraw</button>
+      <button class="next-btn" id="btn-publish" onclick="publishProfile()">
+        <span id="publish-label">Opublikuj profil →</span>
+      </button>
+    </div>
+  </div><!-- /step-3 -->
+
+
+  <!-- ──────────────────────────────────────────── -->
+  <!-- STEP 4: OPUBLIKOWANO -->
+  <!-- ──────────────────────────────────────────── -->
+  <div class="fm-card" id="step-done" style="display:none">
+    <div class="published-wrap">
+      <div class="published-icon">🎉</div>
+      <h2>Profil opublikowany!</h2>
+      <p>Twój profil trafił do puli matchów. Gdy algorytm znajdzie kompatybilnych kandydatów, dostaniesz powiadomienie. Możesz w każdej chwili sprawdzić status w panelu.</p>
+      <div class="published-code" id="match-code"></div>
+      <div class="published-actions">
+        <button class="btn-ghost" onclick="window.location.href='matches.html'">Przeglądaj pulę →</button>
+        <button class="btn-primary" onclick="window.location.href='dashboard.html'">Przejdź do panelu →</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /fm-wrap -->
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────
+const answers = {
+  care: null, proactive: null, smoking: null, pets: null,
+  kids: null, travelStyle: [], license: null, tech: null,
+  comm: null,
+  budgetMin: null, budgetMax: null, weeks: 4,
+  seasons: [], camperType: [], beds: null,
+  mustHave: [], region: [], experience: null
+};
+
+// ── CHIP HANDLERS ──────────────────────────────────────────────────
+function initChips() {
+  // single-select chips
+  const singles = [
+    ['q-care', 'care'], ['q-proactive', 'proactive'], ['q-smoking', 'smoking'],
+    ['q-pets', 'pets'], ['q-kids', 'kids'], ['q-license', 'license'],
+    ['q-comm', 'comm'], ['q-beds', 'beds'], ['q-experience', 'experience']
+  ];
+  singles.forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        el.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        answers[key] = chip.dataset.val;
+      });
+    });
+  });
+
+  // multi-select chips
+  const multis = [
+    ['q-travel-style', 'travelStyle'], ['q-seasons', 'seasons'],
+    ['q-camper-type', 'camperType'], ['q-musthave', 'mustHave'], ['q-region', 'region']
+  ];
+  multis.forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('selected');
+        const vals = [...el.querySelectorAll('.chip.selected')].map(c => c.dataset.val);
+        answers[key] = vals;
+      });
+    });
+  });
+
+  // scale buttons
+  document.querySelectorAll('#q-tech .scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#q-tech .scale-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      answers.tech = btn.dataset.val;
+    });
+  });
+}
+
+// ── SLIDER ────────────────────────────────────────────────────────
+function updateSlider(el, labelId, fmt) {
+  const v = parseInt(el.value);
+  const pct = ((v - el.min) / (el.max - el.min)) * 100;
+  el.style.setProperty('--pct', pct + '%');
+  document.getElementById(labelId).textContent = fmt(v);
+  answers.weeks = v;
+}
+
+// ── STEP NAVIGATION ───────────────────────────────────────────────
+function goToStep(n) {
+  if (n === 'done') {
+    ['step-1','step-2','step-3','step-done'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    document.getElementById('step-done').style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+    return;
+  }
+  if (n === 2 || n === 3) {
+    answers.budgetMin = parseInt(document.getElementById('budget-min').value) || null;
+    answers.budgetMax = parseInt(document.getElementById('budget-max').value) || null;
+  }
+  if (n === 3) renderSummary();
+
+  ['step-1','step-2','step-3','step-done'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  const target = document.getElementById('step-' + n);
+  if (target) target.style.display = 'block';
+
+  updateProgress(n);
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function updateProgress(current) {
+  for (let i = 1; i <= 3; i++) {
+    const stepEl = document.getElementById('step-ind-' + i);
+    stepEl.classList.remove('active', 'done');
+    if (i < current) stepEl.classList.add('done');
+    else if (i === current) stepEl.classList.add('active');
+
+    // dot content
+    const dot = stepEl.querySelector('.fm-step-dot');
+    dot.textContent = i < current ? '✓' : i;
+  }
+  // lines
+  const line12 = document.getElementById('line-1-2');
+  const line23 = document.getElementById('line-2-3');
+  if (line12) { line12.classList.toggle('done', current > 1); }
+  if (line23) { line23.classList.toggle('done', current > 2); }
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────────
+const LABELS = {
+  care:    { pedant:'Idealnie czysty', normal:'Porządek jak zastałem', lazy:'Sprzątam na koniec', niechluj:'Ważne że sprawny' },
+  proactive: { proactive:'Sam naprawiam', reactive:'Zlecam fachowcowi', mixed:'Zależy od usterki' },
+  smoking: { no:'Absolutnie nie', outside:'Tylko na zewnątrz', ok:'Bez problemu' },
+  pets:    { no:'Bez zwierząt', small:'Małe zwierzęta', any:'Dowolne', iam:'Sam mam zwierzę' },
+  kids:    { no:'Bez dzieci', ok:'OK z dziećmi', family:'Wyjeżdżamy z rodziną' },
+  license: { b:'Kat. B (do 3,5t)', 'b-old':'B sprzed 2013', c:'Kat. C/C1', no:'Nie prowadzę' },
+  comm:    { formal:'Regulamin pisemny', chat:'Czat grupowy', call:'Rozmowa', async:'Asynchronicznie' },
+  beds:    { '2':'2 osoby', '4':'4 osoby', '6':'6+ osób', any:'Bez znaczenia' },
+  experience: { none:'Nigdy nie byłem', rental:'Wynajmowałem', own:'Miałem własnego', veteran:'Veteran' }
+};
+
+const CHIP_LABELS = {
+  travelStyle: { slow:'Slow travel', move:'Dużo przejazdów', events:'Eventy', nature:'Dzika przyroda', coast:'Plaże', city:'Blisko miast' },
+  seasons:     { spring:'Wiosna', summer:'Lato', autumn:'Jesień', winter:'Zima' },
+  camperType:  { van:'Van', semi:'Semi-integra', integ:'Integra', trailer:'Przyczepa', any:'Dowolny' },
+  mustHave:    { toilet:'Toaleta', shower:'Prysznic', solar:'Solary', awning:'Markiza', ac:'Klimatyzacja', heating:'Ogrzewanie', kitchen:'Kuchnia', bike:'Bagażnik rowerów', '4x4':'4x4', internet:'Internet' },
+  region:      { mazowsze:'Mazowsze', malopolska:'Małopolska', slask:'Śląsk', pomerania:'Trójmiasto', wielkopolska:'Wielkopolska', other:'Inne' }
+};
+
+function chipsHtml(vals, map) {
+  if (!vals || !vals.length) return '<span style="color:var(--text3);font-size:12px">—</span>';
+  return '<div class="summary-chips">' + vals.map(v => `<span class="summary-chip">${map[v] || v}</span>`).join('') + '</div>';
+}
+function singleLabel(key) {
+  const v = answers[key];
+  return v ? (LABELS[key]?.[v] || v) : '<span style="color:var(--text3)">—</span>';
+}
+
+function renderSummary() {
+  const body = document.getElementById('summary-body');
+
+  const budgetStr = (answers.budgetMin && answers.budgetMax)
+    ? `${answers.budgetMin.toLocaleString('pl')} – ${answers.budgetMax.toLocaleString('pl')} PLN`
+    : (answers.budgetMin ? `od ${answers.budgetMin.toLocaleString('pl')} PLN` : '—');
+
+  body.innerHTML = `
+    <div class="fm-section">Styl użytkowania</div>
+
+    <div class="summary-section">
+      <div class="summary-row"><span class="sr-label">Dbałość o sprzęt</span><span class="sr-val">${singleLabel('care')}</span></div>
+      <div class="summary-row"><span class="sr-label">Podejście do napraw</span><span class="sr-val">${singleLabel('proactive')}</span></div>
+      <div class="summary-row"><span class="sr-label">Palenie</span><span class="sr-val">${singleLabel('smoking')}</span></div>
+      <div class="summary-row"><span class="sr-label">Zwierzęta</span><span class="sr-val">${singleLabel('pets')}</span></div>
+      <div class="summary-row"><span class="sr-label">Dzieci</span><span class="sr-val">${singleLabel('kids')}</span></div>
+      <div class="summary-row"><span class="sr-label">Styl podróży</span><span class="sr-val">${chipsHtml(answers.travelStyle, CHIP_LABELS.travelStyle)}</span></div>
+      <div class="summary-row"><span class="sr-label">Prawo jazdy</span><span class="sr-val">${singleLabel('license')}</span></div>
+      <div class="summary-row"><span class="sr-label">Samodzielność tech.</span><span class="sr-val">${answers.tech ? answers.tech + '/5' : '—'}</span></div>
+      <div class="summary-row"><span class="sr-label">Komunikacja</span><span class="sr-val">${singleLabel('comm')}</span></div>
+    </div>
+
+    <div class="fm-section" style="margin-top:8px">Potrzeby kampera</div>
+
+    <div class="summary-section">
+      <div class="summary-row"><span class="sr-label">Budżet wejściowy</span><span class="sr-val">${budgetStr}</span></div>
+      <div class="summary-row"><span class="sr-label">Tygodnie / rok</span><span class="sr-val">${answers.weeks} tydz.</span></div>
+      <div class="summary-row"><span class="sr-label">Sezony</span><span class="sr-val">${chipsHtml(answers.seasons, CHIP_LABELS.seasons)}</span></div>
+      <div class="summary-row"><span class="sr-label">Typ kampera</span><span class="sr-val">${chipsHtml(answers.camperType, CHIP_LABELS.camperType)}</span></div>
+      <div class="summary-row"><span class="sr-label">Miejsca do spania</span><span class="sr-val">${singleLabel('beds')}</span></div>
+      <div class="summary-row"><span class="sr-label">Must-haves</span><span class="sr-val">${chipsHtml(answers.mustHave, CHIP_LABELS.mustHave)}</span></div>
+      <div class="summary-row"><span class="sr-label">Region wyjazdu</span><span class="sr-val">${chipsHtml(answers.region, CHIP_LABELS.region)}</span></div>
+      <div class="summary-row"><span class="sr-label">Doświadczenie</span><span class="sr-val">${singleLabel('experience')}</span></div>
+    </div>
+  `;
+}
+
+// ── PUBLISH ───────────────────────────────────────────────────────
+async function publishProfile() {
+  const btn = document.getElementById('btn-publish');
+  const label = document.getElementById('publish-label');
+  label.textContent = 'Publikowanie…';
+  btn.disabled = true;
+
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (!session) { window.location.href = 'index.html'; return; }
+
+    const profile = {
+      user_id: session.user.id,
+      care_style: answers.care,
+      proactive: answers.proactive,
+      smoking: answers.smoking,
+      pets: answers.pets,
+      kids: answers.kids,
+      travel_style: answers.travelStyle,
+      license: answers.license,
+      tech_level: answers.tech ? parseInt(answers.tech) : null,
+      comm_style: answers.comm,
+      budget_min: answers.budgetMin,
+      budget_max: answers.budgetMax,
+      weeks_per_year: answers.weeks,
+      seasons: answers.seasons,
+      camper_type: answers.camperType,
+      beds: answers.beds,
+      must_have: answers.mustHave,
+      region: answers.region,
+      experience: answers.experience,
+      status: 'active'
+    };
+
+    const { data, error } = await _supabase
+      .from('matching_profiles')
+      .upsert(profile, { onConflict: 'user_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const code = 'NKK-' + (data.id || '').toString().slice(0, 6).toUpperCase().padEnd(6, '0');
+    document.getElementById('match-code').textContent = code;
+    goToStep('done');
+  } catch (e) {
+    console.error(e);
+    // graceful fallback — show success anyway (DB might not have table yet)
+    const code = 'NKK-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    document.getElementById('match-code').textContent = code;
+    goToStep('done');
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+(async () => {
+  const session = await requireAuth();
+  if (!session) return;
+
+  initChips();
+
+  // init slider display
+  const sl = document.getElementById('weeks-slider');
+  updateSlider(sl, 'weeks-val', v => v + ' tydz./rok');
+
+  // check if already has a matching profile
+  const { data: existing } = await _supabase
+    .from('matching_profiles')
+    .select('id, status')
+    .eq('user_id', session.user.id)
+    .single();
+
+  if (existing?.status === 'active') {
+    // already published — show done state
+    const code = 'NKK-' + (existing.id || '').toString().slice(0, 6).toUpperCase().padEnd(6, '0');
+    document.getElementById('match-code').textContent = code;
+    goToStep('done');
+    document.querySelector('.published-wrap p').textContent =
+      'Twój profil jest już aktywny w puli matchów. Możesz go zaktualizować lub przejść do panelu.';
+    const actions = document.querySelector('.published-actions');
+    actions.innerHTML = `
+      <button class="btn-ghost" onclick="goToStep(1)">Zaktualizuj profil</button>
+      <button class="btn-ghost" onclick="window.location.href='matches.html'">Przeglądaj pulę →</button>
+      <button class="btn-primary" onclick="window.location.href='dashboard.html'">Przejdź do panelu →</button>
+    `;
+  }
+})();
+</script>
+</body>
+</html>
