@@ -602,7 +602,7 @@ async function doResetPassword() {
   const { error } = await _supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
   if (error) {
-    alertEl.innerHTML = err('Coś poszło nie tak. Spróbuj ponownie.');
+    alertEl.innerHTML = err(`Błąd: ${error.message}`);
     btn.textContent = 'Wyślij link →'; btn.disabled = false;
   } else {
     alertEl.innerHTML = `<div class="alert alert-success" style="margin-bottom:12px">Link wysłany! Sprawdź skrzynkę: <strong>${email}</strong></div>`;
