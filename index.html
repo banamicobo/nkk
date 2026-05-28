@@ -291,7 +291,7 @@ footer p { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospa
 <!-- 10 REASONS -->
 <section class="reasons">
   <div class="section-label">Dlaczego spółdzielnia?</div>
-  <h2 class="section-h2">14 powodów, żeby nie kupować kampera samemu</h2>
+  <h2 class="section-h2">15 powodów, żeby nie kupować kampera samemu</h2>
   <div class="reasons-grid">
 
     <div class="reason-card">
@@ -411,12 +411,21 @@ footer p { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospa
       </div>
     </div>
 
-    <div class="reason-card" style="border-color:rgba(232,131,42,.25);background:rgba(232,131,42,.04);">
+    <div class="reason-card">
       <div class="reason-num">14</div>
       <div>
         <div class="reason-icon">🏭</div>
         <div class="reason-title">Serwis i ubezpieczenia — siła skali</div>
         <div class="reason-desc">Sieć spółdzielni NKK negocjuje zbiorowe stawki serwisu, ubezpieczeń i pakietów sprzątania. Wiemy które towarzystwo najlepiej wypłaca — bo mamy dane od setek właścicieli. Niedostępne dla pojedynczego kamperowicza.</div>
+      </div>
+    </div>
+
+    <div class="reason-card" style="border-color:rgba(106,171,94,.3);background:rgba(106,171,94,.05);">
+      <div class="reason-num">15</div>
+      <div>
+        <div class="reason-icon">🤝</div>
+        <div class="reason-title">Znajdziesz ludzi takich jak ty</div>
+        <div class="reason-desc">Spółdzielnia łączy cię z ludźmi o podobnym stylu życia i marzeniach — system matchowania dobiera wspólników według twoich wartości i nawyków. Kamper to pretekst. Przyjaźnie na lata — i wspólne wypady tym samym kamperem — to bonus.</div>
       </div>
     </div>
 
@@ -552,15 +561,17 @@ footer p { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospa
     <h3>Witaj z powrotem</h3>
     <div class="modal-sub">Zaloguj się do swojej spółdzielni</div>
     <div id="login-alert"></div>
+    <form action="javascript:void(0)" onsubmit="doLogin()">
     <div class="form-group">
       <label>E-mail</label>
-      <input type="email" id="login-email" placeholder="twoj@email.com" autocomplete="email">
+      <input type="email" id="login-email" placeholder="twoj@email.com" autocomplete="username">
     </div>
     <div class="form-group">
       <label>Hasło</label>
       <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
     </div>
-    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Zaloguj się</button>
+    <button type="submit" class="btn btn-primary" id="login-btn">Zaloguj się</button>
+    </form>
     <div class="modal-footer">
       <a onclick="openResetPassword()" style="float:left">Nie pamiętasz hasła?</a>
       Nie masz konta? <a onclick="openRegister()">Załóż za darmo →</a>
@@ -636,7 +647,6 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 });
 
 // Enter key support
-document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('reg-pass2').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
 
 async function doLogin() {
