@@ -469,7 +469,26 @@ footer p { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospa
     </div>
     <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Zaloguj się</button>
     <div class="modal-footer">
+      <a onclick="openResetPassword()" style="float:left">Nie pamiętasz hasła?</a>
       Nie masz konta? <a onclick="openRegister()">Załóż za darmo →</a>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RESET PASSWORD -->
+<div class="modal-overlay" id="modal-reset">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModals()">✕</button>
+    <h3>Reset hasła</h3>
+    <div class="modal-sub">Wyślemy Ci link do ustawienia nowego hasła.</div>
+    <div id="reset-alert"></div>
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="reset-email" placeholder="twoj@email.com" autocomplete="email">
+    </div>
+    <button class="btn btn-primary" id="reset-btn" onclick="doResetPassword()">Wyślij link →</button>
+    <div class="modal-footer">
+      Wróć do <a onclick="openLogin()">logowania</a>
     </div>
   </div>
 </div>
@@ -513,9 +532,10 @@ footer p { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospa
   }
 })();
 
-function openLogin()    { closeModals(); document.getElementById('modal-login').classList.add('open'); document.getElementById('login-email').focus(); }
-function openRegister() { closeModals(); document.getElementById('modal-register').classList.add('open'); document.getElementById('reg-email').focus(); }
-function closeModals()  { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
+function openLogin()         { closeModals(); document.getElementById('modal-login').classList.add('open'); document.getElementById('login-email').focus(); }
+function openRegister()      { closeModals(); document.getElementById('modal-register').classList.add('open'); document.getElementById('reg-email').focus(); }
+function openResetPassword() { closeModals(); document.getElementById('modal-reset').classList.add('open'); document.getElementById('reset-email').focus(); }
+function closeModals()       { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
 
 // Close on backdrop click
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -566,6 +586,27 @@ async function doRegister() {
     btn.textContent = 'Utwórz konto →'; btn.disabled = false;
   } else {
     window.location.href = 'choose.html';
+  }
+}
+
+async function doResetPassword() {
+  const btn = document.getElementById('reset-btn');
+  const alertEl = document.getElementById('reset-alert');
+  const email = document.getElementById('reset-email').value.trim();
+
+  if (!email) { alertEl.innerHTML = err('Wpisz adres e-mail.'); return; }
+
+  btn.textContent = 'Wysyłanie…'; btn.disabled = true;
+
+  const redirectTo = window.location.origin + '/reset-password.html';
+  const { error } = await _supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+  if (error) {
+    alertEl.innerHTML = err('Coś poszło nie tak. Spróbuj ponownie.');
+    btn.textContent = 'Wyślij link →'; btn.disabled = false;
+  } else {
+    alertEl.innerHTML = `<div class="alert alert-success" style="margin-bottom:12px">Link wysłany! Sprawdź skrzynkę: <strong>${email}</strong></div>`;
+    btn.textContent = 'Wysłano ✓'; btn.disabled = true;
   }
 }
 
